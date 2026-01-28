@@ -2,10 +2,10 @@ import streamlit as st
 import os
 import pysubs2
 import numpy as np
-import time
-from datetime import datetime
-from gtts import gTTS
+import asyncio
+import edge_tts
 import google.generativeai as genai
+from datetime import datetime
 from streamlit.web.server.websocket_headers import _get_websocket_headers
 from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip, AudioFileClip, CompositeAudioClip
 from PIL import Image, ImageDraw, ImageFont
@@ -14,9 +14,9 @@ from PIL import Image, ImageDraw, ImageFont
 st.set_page_config(page_title="NMH Pro Creator Mood", layout="wide")
 
 # ==========================================
-# 🔑 GEMINI API (Tab 1 အတွက်)
+# 🔑 GEMINI API (Tab 1)
 # ==========================================
-GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"  # ညီကို့ Key ထည့်ပါ
+GEMINI_API_KEY = "YOUR_GEMINI_API_KEY" # ညီကို့ Key ထည့်ပါ
 if GEMINI_API_KEY != "YOUR_GEMINI_API_KEY":
     genai.configure(api_key=GEMINI_API_KEY)
 
@@ -50,16 +50,15 @@ st.markdown("""
 """)
 st.success("📢 Facebook / TikTok / VPN / Follower နှင့် တခြား Premium Service များလဲ ရသည်!")
 
-tab1, tab2, tab3 = st.tabs(["Tab 1: 🌐 Get SRT (Gemini)", "Tab 2: 📝 စာတန်းမြှုပ် (Free)", "Tab 3: 🗣️ အသံထည့် (Pro - Google Voice)"])
+tab1, tab2, tab3 = st.tabs(["Tab 1: 🌐 Get SRT (Gemini)", "Tab 2: 📝 စာတန်းမြှုပ် (Free)", "Tab 3: 🗣️ အသံထည့် (Pro - Original Voice)"])
 
 # ==========================================
-# TAB 1: GEMINI (Manual Copy Paste)
+# TAB 1: GEMINI (Manual)
 # ==========================================
 with tab1:
     st.header("အဆင့် ၁ - Gemini မှ SRT စာသားတောင်းယူပါ")
     st.link_button("🚀 Go to Google Gemini App/Web", "https://gemini.google.com/")
     st.write("Gemini တွင် 'Generate Myanmar SRT file for this video' ဟု ရေးပြီး တောင်းပါ။")
-    
     st.write("---")
     st.header("အဆင့် ၂ - ရလာသော စာသားကို SRT ဖိုင်ပြောင်းပါ")
     srt_text_input = st.text_area("Gemini မှပေးလိုက်သော SRT စာသားများကို ဒီအကွက်ထဲ Paste ချပါ:", height=300)
@@ -88,7 +87,6 @@ with tab2:
     with col1: v1_file = st.file_uploader("Video", type=["mp4", "mov"], key="v1")
     with col2: s1_file = st.file_uploader("SRT", type=["srt"], key="s1")
 
-    # Helper for Subtitles
     def generate_subtitle_clips(subtitle_path, video_width, video_height, font_path):
         subs = pysubs2.load(subtitle_path, encoding="utf-8")
         subtitle_clips = []
@@ -130,14 +128,13 @@ with tab2:
             if os.path.exists(op): os.remove(op)
 
 # ==========================================
-# TAB 3: PRO VERSION (GOOGLE VOICE TTS)
+# TAB 3: PRO VERSION (EDGE-TTS FIXED)
 # ==========================================
 with tab3:
-    st.header("Tab 3: Video အသံထည့်ခြင်း (Google Voice)")
+    st.header("Tab 3: Video အသံထည့်ခြင်း (Pro - Original Voices)")
     
     if "user_info" not in st.session_state: st.session_state.user_info = None
     
-    # Login Logic
     if st.session_state.user_info is None:
         st.warning("🔒 Feature Locked.")
         col_pass1, _ = st.columns([3, 1])
@@ -162,6 +159,11 @@ with tab3:
         st.stop()
 
     st.success(f"✅ Welcome {st.session_state.user_info}")
+    if "Admin" in st.session_state.user_info:
+        if st.button("Reset Locks"):
+            usage_data["bindings"] = {}
+            st.success("Reset Done!")
+
     if st.button("Logout"):
         st.session_state.user_info = None
         st.rerun()
@@ -171,21 +173,36 @@ with tab3:
     with col3: v2_file = st.file_uploader("Video (Dub)", type=["mp4", "mov"], key="v2")
     with col4: s2_file = st.file_uploader("SRT (Dub)", type=["srt"], key="s2")
     
+    voice_option = st.selectbox("Voice Selection", ("Female (Thiri) - မသီရိ", "Male (Sai Nyi) - ကိုစိုင်းညီ"))
+    
+    if "Female" in voice_option:
+        VOICE_ID = "my-MM-ThiriNeural"
+    else:
+        VOICE_ID = "my-MM-SaiNyiNeural"
+
     keep_original = st.checkbox("Keep Original Audio (Background)", value=True)
 
-    # Google TTS Function
-    def generate_google_voice(text, output_file):
-        try:
-            # lang='my' သည် Google ၏ မြန်မာအသံကုဒ်ဖြစ်သည်
-            tts = gTTS(text=text, lang='my', slow=False)
-            tts.save(output_file)
-            return True
-        except Exception as e:
-            print(f"TTS Error: {e}")
-            return False
+    # --- ROBUST AUDIO GENERATION FUNCTION ---
+    async def generate_voice_robust(text, output_file, voice_id):
+        # စာသားသန့်ရှင်းရေး (Remove special chars that break TTS)
+        clean_text = text.replace("*", "").replace("-", "").strip()
+        if not clean_text: return False
+        
+        # 3 ခါထိ ပြန်ကြိုးစားမည့်စနစ် (Retry System)
+        for attempt in range(3):
+            try:
+                communicate = edge_tts.Communicate(clean_text, voice_id)
+                await communicate.save(output_file)
+                # ဖိုင်ဆိုဒ်ကို စစ်ခြင်း (0KB ဆိုရင် မအောင်မြင်ဘူးလို့ ယူဆမယ်)
+                if os.path.exists(output_file) and os.path.getsize(output_file) > 100:
+                    return True
+            except Exception as e:
+                print(f"Attempt {attempt+1} failed: {e}")
+                await asyncio.sleep(1) # ခဏစောင့်ပြီး ပြန်စမ်းမယ်
+        return False
 
-    if v2_file and s2_file and st.button("Start Dubbing (Google Voice)", key="btn_pro"):
-        with st.spinner("Processing with Google Voice..."):
+    if v2_file and s2_file and st.button("Start Dubbing (Original Voice)", key="btn_pro"):
+        with st.spinner("အသံထည့်နေပါသည် (Connection ကောင်းရန် လိုအပ်ပါသည်)..."):
             vp2, sp2, op2 = "temp_v2.mp4", "temp_s2.srt", "output_dub.mp4"
             with open(vp2, "wb") as f: f.write(v2_file.getbuffer())
             with open(sp2, "wb") as f: f.write(s2_file.getbuffer())
@@ -195,9 +212,8 @@ with tab3:
                 subs = pysubs2.load(sp2, encoding="utf-8")
                 
                 audio_clips = []
-                # --- BACKGROUND AUDIO FIX ---
                 if keep_original and video.audio is not None:
-                    # 0.1 ဆိုတာ 10% ပါ (အရမ်းတိုးသွားပါလိမ့်မယ်)
+                    # မူရင်းအသံကို ၁၀% ထိ လျှော့ချခြင်း
                     bg_audio = video.audio.volumex(0.1)
                     audio_clips.append(bg_audio)
                 
@@ -205,49 +221,41 @@ with tab3:
                 progress_bar = st.progress(0)
                 total_lines = len(subs)
                 
+                success_count = 0
                 for i, line in enumerate(subs):
                     if not line.text.strip(): continue
                     
                     text = line.text.replace("\\N", " ")
                     temp_audio = f"temp_aud_{i}.mp3"
                     
-                    # Using gTTS (Google) instead of Edge
-                    success = generate_google_voice(text, temp_audio)
+                    # Safe Generation Call
+                    is_success = asyncio.run(generate_voice_robust(text, temp_audio, VOICE_ID))
                     
-                    if success and os.path.exists(temp_audio):
+                    if is_success:
                         generated_files.append(temp_audio)
                         try:
                             audioclip = AudioFileClip(temp_audio)
-                            if audioclip.duration > 0:
-                                audioclip = audioclip.set_start(line.start / 1000)
-                                audio_clips.append(audioclip)
+                            audioclip = audioclip.set_start(line.start / 1000)
+                            audio_clips.append(audioclip)
+                            success_count += 1
                         except: pass
                     
                     progress_bar.progress((i + 1) / total_lines)
             
-                if len(audio_clips) > 0:
-                    # အသံဖိုင်အားလုံး ပေါင်းစပ်ခြင်း
+                if success_count > 0:
                     final_audio = CompositeAudioClip(audio_clips)
-                    
-                    # နောက်ဆုံး Video Duration နဲ့ ညီအောင်ညှိ (Background အသံမပိုအောင်)
                     final_audio = final_audio.set_duration(video.duration)
                     final_video = video.set_audio(final_audio)
                     
                     final_video.write_videofile(
-                        op2, 
-                        fps=24, 
-                        codec='libx264', 
-                        preset='fast', 
-                        audio_codec='aac', 
-                        threads=4, 
-                        ffmpeg_params=["-crf", "23"]
+                        op2, fps=24, codec='libx264', preset='fast', 
+                        audio_codec='aac', threads=4, ffmpeg_params=["-crf", "23"]
                     )
                     
-                    st.success("Success! (Google Voice + Low Background)")
-                    with open(op2, "rb") as f:
-                        st.download_button("Download Dubbed Video", f.read(), "google_dubbed.mp4", "video/mp4")
+                    st.success(f"Success! (Lines generated: {success_count}/{total_lines})")
+                    with open(op2, "rb") as f: st.download_button("Download Video", f.read(), "dubbed_fixed.mp4", "video/mp4")
                 else:
-                    st.error("Error: SRT ဖိုင်မှ စာများကို ဖတ်မရပါ။")
+                    st.error("Error: အသံဖိုင် လုံးဝ ထုတ်မရပါ။ Internet Connection စစ်ဆေးပါ သို့မဟုတ် စာသားများ ပြင်ဆင်ပါ။")
 
                 for f in generated_files: 
                     if os.path.exists(f): os.remove(f)
