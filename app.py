@@ -2,11 +2,9 @@ import streamlit as st
 import whisper
 import os
 from datetime import timedelta
-from googletrans import Translator
+from deep_translator import GoogleTranslator
 
-# ဘာသာပြန်စနစ်ကို စတင်ခြင်း
-translator = Translator()
-
+# အချိန်မှတ်တမ်း Format ပြောင်းသည့် Function
 def format_timestamp(seconds):
     td = timedelta(seconds=seconds)
     total_seconds = int(td.total_seconds())
@@ -32,8 +30,8 @@ with tab1:
             with open("temp_v.mp4", "wb") as f:
                 f.write(video_file.getbuffer())
             
+            # Whisper Model load (base သည် မြန်ဆန်ပြီး အင်္ဂလိပ်ပြန်ဆိုမှု ကောင်းမွန်ပါသည်)
             model = whisper.load_model("base")
-            # task="translate" သည် တရုတ်/အခြားဘာသာကို အင်္ဂလိပ်သို့ တိုက်ရိုက်ပြောင်းပေးပါသည်
             result = model.transcribe("temp_v.mp4", task="translate")
             
             srt_eng = ""
@@ -45,13 +43,12 @@ with tab1:
             
             st.success("English SRT ရပါပြီ!")
             st.download_button("Download English SRT", srt_eng, "english_sub.srt")
-            st.text_area("Preview", srt_eng, height=200)
+            st.text_area("English Preview", srt_eng, height=200)
             os.remove("temp_v.mp4")
 
 # --- Part 2: English SRT to Myanmar ---
 with tab2:
     st.header("Step 2: အင်္ဂလိပ် SRT မှ မြန်မာဘာသာသို့ ပြောင်းလဲခြင်း")
-    st.write("Step 1 မှ ရရှိလာသော အင်္ဂလိပ်စာတန်းဖိုင်ကို တင်ပေးပါ။")
     srt_input = st.file_uploader("English SRT ဖိုင်ကို တင်ပါ", type=["srt"], key="srt_step2")
     
     if srt_input and st.button("Start Myanmar Translation"):
@@ -60,11 +57,14 @@ with tab2:
             lines = eng_content.split('\n')
             translated_srt = ""
             
+            # Translator စတင်ခြင်း
+            translator = GoogleTranslator(source='en', target='my')
+            
             for line in lines:
-                # အချိန်မှတ်တမ်း သို့မဟုတ် ဂဏန်းမဟုတ်လျှင် ဘာသာပြန်မည်
+                # အချိန် သို့မဟုတ် ဂဏန်းမဟုတ်လျှင် ဘာသာပြန်မည်
                 if line.strip() and not line.strip().isdigit() and "-->" not in line:
                     try:
-                        translated = translator.translate(line, src='en', dest='my').text
+                        translated = translator.translate(line)
                         translated_srt += translated + "\n"
                     except:
                         translated_srt += line + "\n"
