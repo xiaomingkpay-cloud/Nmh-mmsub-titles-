@@ -6,7 +6,7 @@ from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip
 from PIL import Image, ImageDraw, ImageFont
 
 st.set_page_config(page_title="NMH Subtitle Fixer", layout="wide")
-st.title("🎬 NMH Pro Video Subtitler (Turbo Mode 🚀)")
+st.title("🎬 NMH Pro Vid Mode 🚀 )")
 st.write("မြန်မာစာလုံး အမှန်ထွက်ပြီး ပိုမြန်အောင် ပြုလုပ်ထားသော ဗားရှင်း")
 
 # --- UI ---
@@ -20,8 +20,8 @@ def generate_subtitle_clips(subtitle_path, video_width, video_height, font_path)
     subs = pysubs2.load(subtitle_path, encoding="utf-8")
     subtitle_clips = []
     
-    # Font Size (အနည်းငယ် သေးလိုက်သည် - Render ပိုမြန်စေရန်)
-    fontsize = int(video_width / 22)  
+    # Font Size (Video အကျယ်ရဲ့ ၂၅ ပုံ ၁ ပုံ)
+    fontsize = int(video_width / 25)  
     try:
         font = ImageFont.truetype(font_path, fontsize)
     except:
@@ -32,19 +32,21 @@ def generate_subtitle_clips(subtitle_path, video_width, video_height, font_path)
             continue
 
         text_w = int(video_width * 0.9)
-        text_h = int(video_height * 0.2)
+        text_h = int(video_height * 0.25)
         
         img = Image.new('RGBA', (text_w, text_h), (255, 255, 255, 0))
         draw = ImageDraw.Draw(img)
         text_content = line.text.replace("\\N", "\n")
         
+        # စာသားနေရာချခြင်း
         try:
             draw.text((text_w/2, text_h/2), text_content, font=font, fill="white", stroke_width=3, stroke_fill="black", anchor="mm", align="center")
         except:
             draw.text((10, 10), text_content, font=font, fill="white", stroke_width=2, stroke_fill="black")
 
         clip = ImageClip(np.array(img)).set_start(line.start / 1000).set_duration((line.end - line.start) / 1000)
-        clip = clip.set_position(('center', 0.85), relative=True)
+        # အောက်ခြေနား ကပ်မည်
+        clip = clip.set_position(('center', 0.80), relative=True)
         subtitle_clips.append(clip)
         
     return subtitle_clips
@@ -85,8 +87,7 @@ if video_file and srt_file:
                     codec='libx264', 
                     preset='ultrafast', 
                     audio_codec='aac', 
-                    threads=4,
-                    ffmpeg_params=["-crf", "28"] # File size သေးအောင် CRF 28 ထားသည်
+                    threads=4
                 )
                 
                 st.success("အောင်မြင်ပါသည်! (ပုံမှန်ထက် ၂ ဆ ပိုမြန်ပါသည်)")
