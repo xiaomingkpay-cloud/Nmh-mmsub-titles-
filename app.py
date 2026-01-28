@@ -21,7 +21,7 @@ def wait_for_files_active(files):
         if file.state.name != "ACTIVE":
             raise Exception(f"File {file.name} failed to process")
 
-# --- UI Interface ---
+# --- UI Layout ---
 st.set_page_config(page_title="NMH Gemini Subtitle Expert", layout="wide")
 st.title("🎬 NMH Gemini AI Subtitle Expert")
 
@@ -39,26 +39,26 @@ with tab1:
                 f.write(video_file.getbuffer())
             
             try:
-                # Gemini ဆီ ဗီဒီယိုပို့ခြင်း
                 gemini_file = upload_to_gemini(temp_path, mime_type="video/mp4")
                 wait_for_files_active([gemini_file])
                 
-                model = genai.GenerativeModel('gemini-1.5-flash')
-                prompt = "Watch this video and generate a precise English SRT subtitle file with timestamps. Output ONLY the raw SRT content."
+                # Model နာမည်ကို အမှားကင်းအောင် ပြင်ဆင်ထားပါသည်
+                model = genai.GenerativeModel('gemini-1.5-flash-latest')
+                prompt = "Watch this video and generate a precise English SRT subtitle file. Output only the raw SRT content."
                 
                 response = model.generate_content([gemini_file, prompt])
                 srt_eng = response.text.strip()
                 
-                # Markdown format သန့်စင်ခြင်း
-                if srt_eng.startswith("```"):
-                    srt_eng = srt_eng.split("\n", 1)[1].rsplit("\n", 1)[0]
+                # Markdown ဖယ်ရှားခြင်း
+                if "```" in srt_eng:
+                    srt_eng = srt_eng.split("```")[1].replace("srt", "").strip()
                 
                 st.success("English SRT ရပါပြီ!")
                 st.download_button("Download English SRT", srt_eng, "english.srt")
-                st.text_area("Preview (English)", srt_eng, height=200)
+                st.text_area("Preview", srt_eng, height=200)
                 
             except Exception as e:
-                st.error(f"Error: {e}")
+                st.error(f"Error occurred: {e}")
             finally:
                 if os.path.exists(temp_path):
                     os.remove(temp_path)
@@ -66,24 +66,21 @@ with tab1:
 # --- Part 2: English SRT to Myanmar ---
 with tab2:
     st.header("Step 2: အင်္ဂလိပ် SRT မှ မြန်မာဘာသာပြန်ခြင်း")
-    st.write("Step 1 မှ ဒေါင်းလုတ်ရရှိထားသော .srt ဖိုင်ကို ပြန်တင်ပေးပါ။")
     srt_input = st.file_uploader("English SRT ဖိုင်ကို တင်ပါ", type=["srt"], key="srt_up")
     
     if srt_input and st.button("Translate to Myanmar"):
-        with st.spinner("Gemini AI က မြန်မာလို အလှပဆုံး ဘာသာပြန်ပေးနေပါသည်..."):
+        with st.spinner("Gemini က မြန်မာလို ဘာသာပြန်ပေးနေပါသည်..."):
             eng_content = srt_input.read().decode("utf-8")
             
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            prompt = f"Translate the following English SRT content into natural, conversational Myanmar language. Keep the timestamps exactly the same. Output ONLY the translated SRT content: \n\n{eng_content}"
+            model = genai.GenerativeModel('gemini-1.5-flash-latest')
+            prompt = f"Translate the following English SRT content into natural, conversational Myanmar language. Keep timestamps same. Output ONLY the translated SRT content: \n\n{eng_content}"
             
             response = model.generate_content(prompt)
             srt_mm = response.text.strip()
             
-            # Markdown format သန့်စင်ခြင်း
-            if srt_mm.startswith("```"):
-                srt_mm = srt_mm.split("\n", 1)[1].rsplit("\n", 1)[0]
+            if "```" in srt_mm:
+                srt_mm = srt_mm.split("```")[1].replace("srt", "").strip()
             
-            st.success("မြန်မာ SRT ဘာသာပြန်ခြင်း အောင်မြင်ပါသည်!")
+            st.success("မြန်မာ SRT ရပါပြီ!")
             st.download_button("Download Myanmar SRT", srt_mm, "myanmar_final.srt")
-            st.text_area("Preview (Myanmar)", srt_mm, height=200)
-            
+            st.text_area("Preview", srt_mm, height=200)            
