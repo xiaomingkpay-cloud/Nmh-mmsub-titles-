@@ -234,5 +234,40 @@ with tab3:
                     if is_success and os.path.exists(temp_audio):
                         generated_files.append(temp_audio)
                         try:
-                            audioclip
-                            
+                            audioclip = AudioFileClip(temp_audio)
+                            audioclip = audioclip.set_start(line.start / 1000)
+                            audio_clips.append(audioclip)
+                            success_count += 1
+                        except: pass
+                    
+                    progress_bar.progress((i + 1) / total_lines)
+            
+                if success_count > 0:
+                    final_audio = CompositeAudioClip(audio_clips)
+                    
+                    if final_audio.duration > video.duration:
+                        final_audio = final_audio.subclip(0, video.duration)
+                    else:
+                        final_audio = final_audio.set_duration(video.duration)
+                        
+                    final_video = video.set_audio(final_audio)
+                    
+                    final_video.write_videofile(
+                        op2, fps=24, codec='libx264', preset='fast', 
+                        audio_codec='aac', threads=4, ffmpeg_params=["-crf", "23"]
+                    )
+                    
+                    st.success(f"Success! (Created {success_count} lines with {speed_option})")
+                    with open(op2, "rb") as f: st.download_button("Download Dubbed Video", f.read(), "dubbed_turbo.mp4", "video/mp4")
+                else:
+                    st.error("Error: SRT ဖိုင်တွင် စာသားမရှိပါ သို့မဟုတ် ဖတ်မရပါ။")
+
+                for f in generated_files: 
+                    if os.path.exists(f): os.remove(f)
+
+            except Exception as e: st.error(f"System Error: {e}")
+            
+            if os.path.exists(vp2): os.remove(vp2)
+            if os.path.exists(sp2): os.remove(sp2)
+            if os.path.exists(op2): os.remove(op2)
+        
