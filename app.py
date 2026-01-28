@@ -13,18 +13,20 @@ from PIL import Image, ImageDraw, ImageFont
 st.set_page_config(page_title="NMH Pro Creator Mood", layout="wide")
 
 # ==========================================
-# 🎨 BACKGROUND (ရေးရေးလေး ပုံစံ)
+# 🎨 BACKGROUND SYSTEM (RAW GITHUB LINK)
 # ==========================================
-# Tech ဆန်ဆန် အမိုက်စားပုံလေး ထည့်ပေးထားပါတယ်
-bg_url = "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop"
+# ညီကို့ပုံရဲ့ Raw Link အမှန်
+bg_url = "https://raw.githubusercontent.com/xiaomingkpay-cloud/Nmh-mmsub-titles-/main/IMG_20260128_234239_629.jpg"
 
 st.markdown(
     f"""
     <style>
     .stApp {{
+        /* ပုံကို အနောက်မှာ ထားခြင်း */
         background-image: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), url("{bg_url}");
         background-attachment: fixed;
         background-size: cover;
+        background-position: center;
     }}
     </style>
     """,
@@ -211,4 +213,4 @@ with tab2:
             if os.path.exists(vp2): os.remove(vp2)
             if os.path.exists(sp2): os.remove(sp2)
             if os.path.exists(op2): os.remove(op2)
-
+            
