@@ -3,7 +3,4 @@ moviepy==1.0.3
 pysubs2
 pillow
 numpy<2.0.0
-gTTS
-anyio
-google-generativeai
-nest_asyncio
+
