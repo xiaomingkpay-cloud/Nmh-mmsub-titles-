@@ -5,3 +5,4 @@ pillow
 numpy<2.0.0
 edge-tts
 anyio
+google-generativeai
