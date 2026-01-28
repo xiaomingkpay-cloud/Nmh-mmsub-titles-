@@ -2,14 +2,11 @@ import streamlit as st
 import whisper
 import os
 from datetime import timedelta
+from googletrans import Translator
 
-# --- Profile Section ---
-with st.sidebar:
-    st.markdown("### 🛠 Developer Profile")
-    st.info("NMH - Digital Marketer at Htoo Khit Gold Shop") #
-    st.markdown("[Visit My Facebook](https://www.facebook.com/your-profile-link)")
+# AI ဘာသာပြန်ပေးမည့် စက်
+translator = Translator()
 
-# --- Functions ---
 def format_timestamp(seconds):
     td = timedelta(seconds=seconds)
     total_seconds = int(td.total_seconds())
@@ -24,44 +21,41 @@ def write_srt(segments):
     for i, segment in enumerate(segments, start=1):
         start = format_timestamp(segment['start'])
         end = format_timestamp(segment['end'])
-        text = segment['text'].strip()
-        srt_content += f"{i}\n{start} --> {end}\n{text}\n\n"
+        
+        # အင်္ဂလိပ်စာကို မြန်မာစာသို့ ပြောင်းခြင်း
+        eng_text = segment['text'].strip()
+        try:
+            mm_text = translator.translate(eng_text, src='en', dest='my').text
+        except:
+            mm_text = eng_text # Error တက်ရင် မူရင်းစာပဲပြမယ်
+            
+        srt_content += f"{i}\n{start} --> {end}\n{mm_text}\n\n"
     return srt_content
 
-# --- Main Interface ---
-st.title("🎬 NMH Video Translator (CH to MM)")
+st.title("🇲🇲 Myanmar Auto SRT Generator")
 
-uploaded_file = st.file_uploader("တရုတ်ဗီဒီယို တင်ပေးပါ", type=["mp4", "mkv", "avi"])
+uploaded_file = st.file_uploader("Video တင်ပေးပါ", type=["mp4", "mkv", "avi"])
 
 if uploaded_file is not None:
     st.video(uploaded_file)
-    
-    if st.button("မြန်မာစာတန်းထိုး ထုတ်မည်"):
-        with st.spinner("တရုတ်စကားကို မြန်မာလို ဘာသာပြန်နေပါသည်... ခဏစောင့်ပါ..."):
+    if st.button("မြန်မာစာတန်းထိုး စတင်ထုတ်မည်"):
+        with st.spinner("မြန်မာလို ဘာသာပြန်နေပါပြီ... ခဏစောင့်ပါ..."):
             with open("temp.mp4", "wb") as f:
                 f.write(uploaded_file.getbuffer())
-            
             try:
-                # model ကို 'small' သုံးရင် တရုတ်စာအတွက် ပိုမှန်ပါတယ်
-                model = whisper.load_model("small") 
-                
-                # အဆင့် (၁) - တရုတ်စကားကို အင်္ဂလိပ်လို အရင်ပြန်ခြင်း (ပိုမိုတိကျစေရန်)
-                # အဆင့် (၂) - ထိုမှတဆင့် မြန်မာလို ပြောင်းလဲခြင်း
+                # 'base' model က မြန်မာစာအတွက် ပိုမြန်ပါတယ်
+                model = whisper.load_model("base") 
+                # တရုတ်မှ အင်္ဂလိပ်သို့ အရင်ပြန်ခိုင်းပါသည်
                 result = model.transcribe("temp.mp4", task="translate") 
                 
-                # အခုလောလောဆယ် AI က အင်္ဂလိပ်လိုပဲ တိုက်ရိုက်ပြန်ပေးနိုင်ပါသေးတယ်
-                # မြန်မာလို တိတိကျကျရဖို့အတွက် ညီကို အပေါ်မှာ ကျွန်တော် ပြန်ပေးထားတဲ့
-                # SRT စာသားတွေကို ဒီ Tool နဲ့ ထွက်လာတဲ့ အချိန် (Timecode) တွေမှာ အစားထိုးသုံးရင် အကောင်းဆုံးပါ
-                
+                # အင်္ဂလိပ်မှ မြန်မာသို့ ထပ်ဆင့်ပြန်ပြီး SRT ထုတ်ပါသည်
                 srt_output = write_srt(result['segments'])
-                st.success("ဘာသာပြန်ခြင်း ပြီးမြောက်ပါပြီ!")
-                st.download_button("Download SRT (English/Burmese Mix)", srt_output, "translated.srt")
                 
-                with st.expander("စာသားများကို ကြည့်ရန်"):
+                st.success("မြန်မာ SRT ထုတ်ယူမှု အောင်မြင်ပါသည်!")
+                st.download_button("Download Myanmar SRT", srt_output, "myanmar.srt")
+                
+                with st.expander("စာသားများ ကြည့်ရန်"):
                     st.text(srt_output)
-                    
             except Exception as e:
                 st.error(f"Error: {e}")
 
-st.markdown("---")
-st.caption("Customized by NMH for Chinese Short Drama Lovers") #
