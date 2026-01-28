@@ -1,130 +1,64 @@
 import streamlit as st
-import google.generativeai as genai
-import time
+import ffmpeg
 import os
-from deep_translator import GoogleTranslator
 
-# --- Config ---
-GEMINI_API_KEY = "AIzaSyAqugREh5sZDVJQBuuy-fXBgN2V9o8pAfQ"
-genai.configure(api_key=GEMINI_API_KEY)
+st.set_page_config(page_title="NMH Video Hardsubber", layout="wide")
+st.title("🎬 NMH Video Hardsub Tool (Subtitle Burner)")
+st.write("Video နှင့် မြန်မာ SRT ဖိုင်ကို တင်ပြီး စာတန်းမြှုပ် Video ထုတ်ယူပါ။")
 
-# --- Brute Force Model Selector ---
-def generate_with_fallback(file_obj, prompt_text):
-    # စမ်းသပ်မည့် Model နာမည်များ (တစ်ခုမရရင် တစ်ခု ပြောင်းသုံးမည်)
-    model_list = [
-        "gemini-1.5-flash",
-        "models/gemini-1.5-flash",
-        "gemini-1.5-flash-001",
-        "models/gemini-1.5-flash-001",
-        "gemini-1.5-flash-002",
-        "models/gemini-1.5-flash-002",
-        "gemini-1.5-pro",
-        "models/gemini-1.5-pro"
-    ]
-    
-    last_error = None
-    
-    for model_name in model_list:
-        try:
-            print(f"Trying model: {model_name}...")
-            model = genai.GenerativeModel(model_name)
-            response = model.generate_content([file_obj, prompt_text])
+# --- UI Uploads ---
+col1, col2 = st.columns(2)
+with col1:
+    video_file = st.file_uploader("၁။ Video ဖိုင် တင်ပါ", type=["mp4", "mov", "avi"])
+with col2:
+    srt_file = st.file_uploader("၂။ Myanmar SRT ဖိုင် တင်ပါ", type=["srt"])
+
+# --- Processing ---
+if video_file and srt_file:
+    st.write("---")
+    if st.button("Start Burning Subtitles (စာတန်းမြှုပ်မည်)"):
+        with st.spinner("Video ထဲသို့ စာတန်းများ ထည့်သွင်းနေပါသည် (ခဏစောင့်ပါ)..."):
             
-            # Error မတက်ရင် ဒီ Model နာမည်ကို မှတ်သားပြီး အဖြေထုတ်ပေးမယ်
-            return response.text.strip(), model_name
+            # 1. ဖိုင်များကို ယာယီသိမ်းဆည်းခြင်း
+            input_video = "input_video.mp4"
+            input_srt = "input_subs.srt"
+            output_video = "output_hardsub.mp4"
             
-        except Exception as e:
-            # Error တက်ရင် နောက် Model တစ်ခုကို ဆက်စမ်းမယ်
-            print(f"Failed {model_name}: {e}")
-            last_error = e
-            continue
-            
-    # ဘယ်ကောင်မှ မရတော့မှ Error ထုတ်မယ်
-    raise last_error
-
-def upload_to_gemini(path, mime_type=None):
-    file = genai.upload_file(path, mime_type=mime_type)
-    return file
-
-def wait_for_files_active(files):
-    for name in (f.name for f in files):
-        file = genai.get_file(name)
-        while file.state.name == "PROCESSING":
-            time.sleep(2)
-            file = genai.get_file(name)
-        if file.state.name != "ACTIVE":
-            raise Exception(f"File {file.name} failed to process")
-
-# --- UI ---
-st.set_page_config(page_title="NMH Ultimate Fix", layout="wide")
-st.title("🎬 NMH Ultimate Subtitle Tool (Brute Force Mode)")
-
-tab1, tab2 = st.tabs(["Step 1: Visual Extraction", "Step 2: Translation"])
-
-# --- Step 1 ---
-with tab1:
-    st.header("Step 1: Video -> English SRT")
-    st.write("System will try ALL available models until one works.")
-    
-    video_file = st.file_uploader("Upload Video", type=["mp4", "mov", "avi"], key="v1")
-    
-    if video_file and st.button("Generate English SRT"):
-        with st.spinner("AI is finding a working model & reading subtitles..."):
-            temp_path = "temp_v.mp4"
-            with open(temp_path, "wb") as f:
+            with open(input_video, "wb") as f:
                 f.write(video_file.getbuffer())
-            
+            with open(input_srt, "wb") as f:
+                f.write(srt_file.getbuffer())
+                
             try:
-                g_file = upload_to_gemini(temp_path, mime_type="video/mp4")
-                wait_for_files_active([g_file])
+                # 2. FFmpeg ဖြင့် စာတန်းမြှုပ်ခြင်း
+                # Note: force_style is used to ensure font size is visible
+                stream = ffmpeg.input(input_video)
+                stream = ffmpeg.output(stream, output_video, vf=f"subtitles={input_srt}:force_style='FontSize=24'")
+                ffmpeg.run(stream, overwrite_output=True)
                 
-                prompt = """
-                Read the hard-coded Chinese subtitles on the screen.
-                Translate them into English.
-                Output ONLY raw SRT format with timestamps.
-                """
+                # 3. ရလာတဲ့ Video ကို Download ပေးခြင်း
+                st.success("အောင်မြင်ပါသည်! အောက်တွင် Download ရယူပါ။")
                 
-                # Brute Force Function ကို ခေါ်မယ်
-                srt_out, worked_model = generate_with_fallback(g_file, prompt)
+                with open(output_video, "rb") as f:
+                    video_bytes = f.read()
+                    st.download_button(
+                        label="Download Video with Subtitles",
+                        data=video_bytes,
+                        file_name="myanmar_subtitled_video.mp4",
+                        mime="video/mp4"
+                    )
+                    
+                # Preview (Optional)
+                st.video(output_video)
                 
-                # Clean up format
-                if "```" in srt_out:
-                    srt_out = srt_out.split("```")[1].replace("srt", "").strip()
-                
-                st.success(f"Success! Used Model: {worked_model}")
-                st.download_button("Download English SRT", srt_out, "english.srt")
-                st.text_area("Preview", srt_out, height=200)
-                
+            except ffmpeg.Error as e:
+                st.error("Video ပြုလုပ်ရာတွင် Error ဖြစ်သွားပါသည်။")
+                st.error(e.stderr.decode('utf8'))
             except Exception as e:
-                st.error(f"All models failed. Final Error: {e}")
-            finally:
-                if os.path.exists(temp_path):
-                    os.remove(temp_path)
-
-# --- Step 2 ---
-with tab2:
-    st.header("Step 2: English -> Myanmar")
-    srt_file = st.file_uploader("Upload English SRT", type=["srt"], key="s2")
-    
-    if srt_file and st.button("Translate"):
-        with st.spinner("Translating..."):
-            eng_txt = srt_file.read().decode("utf-8")
-            lines = eng_txt.split('\n')
-            translated_srt = ""
-            
-            translator = GoogleTranslator(source='en', target='my')
-            
-            for line in lines:
-                if line.strip() and not line.strip().isdigit() and "-->" not in line:
-                    try:
-                        translated = translator.translate(line)
-                        translated_srt += translated + "\n"
-                    except:
-                        translated_srt += line + "\n"
-                else:
-                    translated_srt += line + "\n"
-            
-            st.success("Done!")
-            st.download_button("Download Myanmar SRT", translated_srt, "myanmar_final.srt")
-            st.text_area("Preview", translated_srt, height=200)
-            
+                st.error(f"Error: {e}")
+                
+            # Cleanup
+            if os.path.exists(input_video): os.remove(input_video)
+            if os.path.exists(input_srt): os.remove(input_srt)
+            if os.path.exists(output_video): os.remove(output_video)
+                
