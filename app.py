@@ -2,8 +2,8 @@ import streamlit as st
 import ffmpeg
 import os
 
-st.set_page_config(page_title="NMH Video Hardsubber", layout="wide")
-st.title("🎬 NMH Video Hardsub Tool (Subtitle Burner)")
+st.set_page_config(page_title="NMH Hardsubber", layout="wide")
+st.title("🎬 NMH Video Hardsub Tool (Fixed Font)")
 st.write("Video နှင့် မြန်မာ SRT ဖိုင်ကို တင်ပြီး စာတန်းမြှုပ် Video ထုတ်ယူပါ။")
 
 # --- UI Uploads ---
@@ -16,47 +16,63 @@ with col2:
 # --- Processing ---
 if video_file and srt_file:
     st.write("---")
-    if st.button("Start Burning Subtitles (စာတန်းမြှုပ်မည်)"):
-        with st.spinner("Video ထဲသို့ စာတန်းများ ထည့်သွင်းနေပါသည် (ခဏစောင့်ပါ)..."):
+    if st.button("Start Burning (စာတန်းမြှုပ်မည်)"):
+        with st.spinner("Video ထဲသို့ မြန်မာစာတန်းများ ထည့်သွင်းနေပါသည်..."):
             
-            # 1. ဖိုင်များကို ယာယီသိမ်းဆည်းခြင်း
             input_video = "input_video.mp4"
             input_srt = "input_subs.srt"
             output_video = "output_hardsub.mp4"
             
+            # Font ဖိုင်နာမည် (GitHub မှာ တင်ထားတဲ့ နာမည်အတိုင်း ဖြစ်ရပါမယ်)
+            font_path = "myanmar_font.ttf" 
+            
+            # Font ဖိုင် တကယ်ရှိမရှိ စစ်ဆေးခြင်း
+            if not os.path.exists(font_path):
+                st.error(f"⚠️ '{font_path}' ဖိုင်ကို GitHub မှာ မတွေ့ပါ။ Font ဖိုင်တင်ပြီး နာမည်တူအောင် ပေးပါ။")
+                st.stop()
+
+            # ဖိုင်များ သိမ်းဆည်းခြင်း
             with open(input_video, "wb") as f:
                 f.write(video_file.getbuffer())
             with open(input_srt, "wb") as f:
                 f.write(srt_file.getbuffer())
                 
             try:
-                # 2. FFmpeg ဖြင့် စာတန်းမြှုပ်ခြင်း
-                # Note: force_style is used to ensure font size is visible
-                stream = ffmpeg.input(input_video)
-                stream = ffmpeg.output(stream, output_video, vf=f"subtitles={input_srt}:force_style='FontSize=24'")
-                ffmpeg.run(stream, overwrite_output=True)
+                # FFmpeg ဖြင့် Font ဖိုင်ကို အသုံးပြုပြီး စာတန်းမြှုပ်ခြင်း
+                # fontsdir=. ဆိုတာ လက်ရှိ Folder ထဲက Font ကို ရှာခိုင်းတာပါ
+                # FontName=MyanmarFont ဆိုတာ လှမ်းခေါ်မည့် နာမည်ပါ (စိတ်ကြိုက်ပေးလို့ရသည်)
                 
-                # 3. ရလာတဲ့ Video ကို Download ပေးခြင်း
-                st.success("အောင်မြင်ပါသည်! အောက်တွင် Download ရယူပါ။")
+                stream = ffmpeg.input(input_video)
+                
+                # အရေးကြီးသော အပိုင်း - fontsdir နှင့် fontfile ကို ထည့်သွင်းခြင်း
+                video = ffmpeg.output(
+                    stream, 
+                    output_video, 
+                    # ဒီနေရာမှာ အပြောင်းအလဲ လုပ်ထားပါတယ်
+                    vf=f"subtitles={input_srt}:fontsdir=.:force_style='FontName=myanmar_font,FontSize=24'"
+                )
+                
+                ffmpeg.run(video, overwrite_output=True)
+                
+                st.success("အောင်မြင်ပါသည်! မြန်မာစာ မှန်ကန်စွာ ပေါ်ပါလိမ့်မည်။")
                 
                 with open(output_video, "rb") as f:
-                    video_bytes = f.read()
                     st.download_button(
-                        label="Download Video with Subtitles",
-                        data=video_bytes,
-                        file_name="myanmar_subtitled_video.mp4",
+                        label="Download Final Video",
+                        data=f.read(),
+                        file_name="myanmar_hardsub_video.mp4",
                         mime="video/mp4"
                     )
                     
-                # Preview (Optional)
                 st.video(output_video)
                 
             except ffmpeg.Error as e:
                 st.error("Video ပြုလုပ်ရာတွင် Error ဖြစ်သွားပါသည်။")
-                st.error(e.stderr.decode('utf8'))
-            except Exception as e:
-                st.error(f"Error: {e}")
-                
+                try:
+                    st.error(e.stderr.decode('utf8'))
+                except:
+                    st.error("Unknown FFmpeg error")
+            
             # Cleanup
             if os.path.exists(input_video): os.remove(input_video)
             if os.path.exists(input_srt): os.remove(input_srt)
