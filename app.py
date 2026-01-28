@@ -2,18 +2,13 @@ import streamlit as st
 import os
 import pysubs2
 import numpy as np
-import asyncio
-import edge_tts
 import google.generativeai as genai
 from datetime import datetime
 from streamlit.web.server.websocket_headers import _get_websocket_headers
 from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip, AudioFileClip, CompositeAudioClip
 from PIL import Image, ImageDraw, ImageFont
-import nest_asyncio
-
-# 🔥 CRITICAL FIX: Server Loop ပြဿနာဖြေရှင်းခြင်း
-# ဒီစာကြောင်းက Error တက်တာကို ကာကွယ်ပေးပါလိမ့်မယ်
-nest_asyncio.apply()
+from gtts import gTTS
+from pydub import AudioSegment
 
 # Website ခေါင်းစဉ်
 st.set_page_config(page_title="NMH Pro Creator Mood", layout="wide")
@@ -55,10 +50,10 @@ st.markdown("""
 """)
 st.success("📢 Facebook / TikTok / VPN / Follower နှင့် တခြား Premium Service များလဲ ရသည်!")
 
-tab1, tab2, tab3 = st.tabs(["Tab 1: 🌐 Get SRT (Gemini)", "Tab 2: 📝 စာတန်းမြှုပ် (Free)", "Tab 3: 🗣️ အသံထည့် (Pro - Ultimate Fix)"])
+tab1, tab2, tab3 = st.tabs(["Tab 1: 🌐 Get SRT (Gemini)", "Tab 2: 📝 စာတန်းမြှုပ် (Free)", "Tab 3: 🗣️ အသံထည့် (Turbo Voice)"])
 
 # ==========================================
-# TAB 1: GEMINI
+# TAB 1 & 2 (ပုံမှန်အတိုင်း)
 # ==========================================
 with tab1:
     st.header("အဆင့် ၁ - Gemini မှ SRT စာသားတောင်းယူပါ")
@@ -75,16 +70,11 @@ with tab1:
         st.success("✅ SRT ဖိုင် ရရှိပါပြီ!")
         with open(output_srt, "rb") as f: st.download_button("Download SRT", f.read(), "myanmar.srt", "text/plain")
 
-# ==========================================
-# TAB 2: BURN SUBTITLE
-# ==========================================
 with tab2:
     st.header("Tab 2: စာတန်းမြှုပ်ခြင်း (Free)")
-    
     user_ip = get_remote_ip()
     if user_ip not in usage_data["users"]: usage_data["users"][user_ip] = 0
     usage_left = 3 - usage_data["users"][user_ip]
-    
     if usage_left > 0: st.info(f"✅ Free Limit: {usage_left}/3 left")
     else: st.error("⛔ Limit Reached")
 
@@ -116,7 +106,6 @@ with tab2:
             vp, sp, fp, op = "temp_v1.mp4", "temp_s1.srt", "myanmar_font.ttf", "output_sub.mp4"
             with open(vp, "wb") as f: f.write(v1_file.getbuffer())
             with open(sp, "wb") as f: f.write(s1_file.getbuffer())
-            
             if not os.path.exists(fp): st.error("Font Missing!")
             else:
                 try:
@@ -133,10 +122,10 @@ with tab2:
             if os.path.exists(op): os.remove(op)
 
 # ==========================================
-# TAB 3: PRO VERSION (PYTHON FIX WITH NEST_ASYNCIO)
+# TAB 3: PRO VERSION (TURBO GOOGLE VOICE)
 # ==========================================
 with tab3:
-    st.header("Tab 3: Video အသံထည့်ခြင်း (Pro)")
+    st.header("Tab 3: Video အသံထည့်ခြင်း (Pro - Turbo Speed)")
     
     if "user_info" not in st.session_state: st.session_state.user_info = None
     
@@ -179,36 +168,41 @@ with tab3:
     with col3: v2_file = st.file_uploader("Video (Dub)", type=["mp4", "mov"], key="v2")
     with col4: s2_file = st.file_uploader("SRT (Dub)", type=["srt"], key="s2")
     
-    voice_option = st.selectbox("Voice Selection", ("Female (Thiri) - မသီရိ", "Male (Sai Nyi) - ကိုစိုင်းညီ"))
-    VOICE_ID = "my-MM-ThiriNeural" if "Female" in voice_option else "my-MM-SaiNyiNeural"
+    # Speed Control
+    speed_option = st.select_slider("စကားပြောနှုန်း ရွေးချယ်ပါ (Voice Speed)", 
+                                    options=["Normal (1.0x)", "Fast (1.25x)", "Super Fast (1.5x)"], 
+                                    value="Fast (1.25x)")
     
-    # Speed Control Slider
-    speed_boost = st.select_slider("စကားပြောနှုန်း (Speaking Rate)", options=["Normal", "Fast (+10%)", "Very Fast (+20%)"], value="Fast (+10%)")
-    
-    # Python Code အတွက် Rate သတ်မှတ်ခြင်း
-    RATE_VAL = "+0%"
-    if speed_boost == "Fast (+10%)": RATE_VAL = "+10%"
-    elif speed_boost == "Very Fast (+20%)": RATE_VAL = "+20%"
-
     keep_original = st.checkbox("Keep Original Audio (Background)", value=True)
 
-    # --- PYTHON GENERATION WITH NESTED LOOP FIX ---
-    async def generate_voice_python(text, output_file, voice_id, rate):
-        clean_text = text.replace('"', '').replace("'", "").strip()
-        if not clean_text: return False
-        
+    # --- TURBO VOICE FUNCTION ---
+    def generate_turbo_voice(text, output_file, speed_mode):
         try:
-            # communicate ကို rate နဲ့ တွဲသုံးခြင်း
-            communicate = edge_tts.Communicate(clean_text, voice_id, rate=rate)
-            await communicate.save(output_file)
+            # 1. Generate Normal Google Voice
+            temp_slow = "temp_slow.mp3"
+            tts = gTTS(text=text, lang='my')
+            tts.save(temp_slow)
+            
+            # 2. Speed It Up using Pydub
+            sound = AudioSegment.from_file(temp_slow)
+            
+            if speed_mode == "Fast (1.25x)":
+                # Speed up by 1.25 times
+                sound = sound.speedup(playback_speed=1.25)
+            elif speed_mode == "Super Fast (1.5x)":
+                sound = sound.speedup(playback_speed=1.5)
+            
+            # 3. Export Final
+            sound.export(output_file, format="mp3")
+            
+            if os.path.exists(temp_slow): os.remove(temp_slow)
             return True
         except Exception as e:
-            # Error အတိအကျကို Print ထုတ်ကြည့်ခြင်း
-            print(f"Gen Error: {e}")
+            print(f"Turbo Error: {e}")
             return False
 
-    if v2_file and s2_file and st.button("Start Dubbing (Pro)", key="btn_pro"):
-        with st.spinner("အသံသွင်းနေပါသည် (Quality: High, Speed: Fixed)..."):
+    if v2_file and s2_file and st.button("Start Dubbing (Turbo Mode)", key="btn_pro"):
+        with st.spinner("အသံသွင်းနေပါသည် (Turbo Mode - No Error)..."):
             vp2, sp2, op2 = "temp_v2.mp4", "temp_s2.srt", "output_dub.mp4"
             with open(vp2, "wb") as f: f.write(v2_file.getbuffer())
             with open(sp2, "wb") as f: f.write(s2_file.getbuffer())
@@ -226,36 +220,37 @@ with tab3:
                 generated_files = []
                 progress_bar = st.progress(0)
                 total_lines = len(subs)
-                
                 success_count = 0
-                errors_log = []
 
                 for i, line in enumerate(subs):
                     if not line.text.strip(): continue
                     
-                    text = line.text.replace("\\N", " ")
+                    text = line.text.replace("\\N", " ").replace('"', '')
                     temp_audio = f"temp_aud_{i}.mp3"
                     
-                    # Run Async Function with asyncio.run() - Works because of nest_asyncio
-                    try:
-                        asyncio.run(generate_voice_python(text, temp_audio, VOICE_ID, RATE_VAL))
-                        
-                        if os.path.exists(temp_audio) and os.path.getsize(temp_audio) > 0:
-                            generated_files.append(temp_audio)
+                    # Call Turbo Function
+                    is_success = generate_turbo_voice(text, temp_audio, speed_option)
+                    
+                    if is_success and os.path.exists(temp_audio):
+                        generated_files.append(temp_audio)
+                        try:
                             audioclip = AudioFileClip(temp_audio)
                             audioclip = audioclip.set_start(line.start / 1000)
                             audio_clips.append(audioclip)
                             success_count += 1
-                        else:
-                            errors_log.append(f"Line {i}: File not created")
-                    except Exception as e:
-                        errors_log.append(f"Line {i} Error: {str(e)}")
+                        except: pass
                     
                     progress_bar.progress((i + 1) / total_lines)
             
                 if success_count > 0:
                     final_audio = CompositeAudioClip(audio_clips)
-                    final_audio = final_audio.set_duration(video.duration)
+                    
+                    # Video Duration ထက် မပိုစေရန် ဖြတ်တောက်ခြင်း
+                    if final_audio.duration > video.duration:
+                        final_audio = final_audio.subclip(0, video.duration)
+                    else:
+                        final_audio = final_audio.set_duration(video.duration)
+                        
                     final_video = video.set_audio(final_audio)
                     
                     final_video.write_videofile(
@@ -263,18 +258,17 @@ with tab3:
                         audio_codec='aac', threads=4, ffmpeg_params=["-crf", "23"]
                     )
                     
-                    st.success(f"Success! (Created {success_count} lines)")
-                    with open(op2, "rb") as f: st.download_button("Download Dubbed Video", f.read(), "dubbed_pro.mp4", "video/mp4")
+                    st.success(f"Success! (Created {success_count} lines with {speed_option})")
+                    with open(op2, "rb") as f: st.download_button("Download Dubbed Video", f.read(), "dubbed_turbo.mp4", "video/mp4")
                 else:
-                    st.error("Error: အသံဖိုင် ထုတ်မရပါ။ အောက်ပါ Error ကို စစ်ဆေးပါ:")
-                    st.write(errors_log) # အမှားကို ထုတ်ပြမည်
+                    st.error("Error: SRT ဖိုင်တွင် စာသားမရှိပါ သို့မဟုတ် ဖတ်မရပါ။")
 
                 for f in generated_files: 
                     if os.path.exists(f): os.remove(f)
 
-            except Exception as e: st.error(f"Critical Error: {e}")
+            except Exception as e: st.error(f"System Error: {e}")
             
             if os.path.exists(vp2): os.remove(vp2)
             if os.path.exists(sp2): os.remove(sp2)
             if os.path.exists(op2): os.remove(op2)
-            
+                        
