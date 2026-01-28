@@ -2,9 +2,10 @@ import streamlit as st
 import google.generativeai as genai
 import time
 import os
+from deep_translator import GoogleTranslator
 
 # --- Gemini API Config ---
-# ညီကိုပေးထားတဲ့ Key အသစ်ကို ဒီမှာ ထည့်သွင်းထားပါတယ်
+# ညီကိုပေးထားတဲ့ Key အသစ်ကို အသုံးပြုထားပါတယ်
 GEMINI_API_KEY = "AIzaSyAqugREh5sZDVJQBuuy-fXBgN2V9o8pAfQ"
 genai.configure(api_key=GEMINI_API_KEY)
 
@@ -23,12 +24,12 @@ def wait_for_files_active(files):
             raise Exception(f"File {file.name} failed to process")
 
 # --- UI Layout ---
-st.set_page_config(page_title="NMH Gemini Visual Expert", layout="wide")
-st.title("🎬 NMH Gemini Visual Subtitle Maker")
+st.set_page_config(page_title="NMH Subtitle Tool", layout="wide")
+st.title("🎬 NMH Gemini Visual & Translation Expert")
 
-tab1, tab2 = st.tabs(["Step 1: Video to English SRT", "Step 2: English SRT to Myanmar"])
+tab1, tab2 = st.tabs(["Step 1: Video Text to English SRT (Gemini)", "Step 2: English SRT to Myanmar (Stable)"])
 
-# --- Step 1: Video to English (Visual Analysis) ---
+# --- Step 1: Video to English (Gemini Visual Analysis) ---
 with tab1:
     st.header("Step 1: ဗီဒီယိုထဲက တရုတ်စာတန်းကို ကြည့်ပြီး အင်္ဂလိပ် SRT ထုတ်ယူခြင်း")
     video_file = st.file_uploader("Video တင်ပါ", type=["mp4", "mov", "avi"], key="v1")
@@ -48,15 +49,13 @@ with tab1:
                 
                 prompt = """
                 Watch the video carefully. Focus on the hard-coded Chinese subtitles (hardsubs) on the screen. 
-                Translate the Chinese text into natural English. 
-                Output ONLY as a raw SRT file with precise timestamps. Do not add conversational text.
+                Read the Chinese text and translate it into clear English. 
+                Output ONLY as a raw SRT file format with accurate timestamps.
                 """
                 
-                # API ခေါ်ယူခြင်း
                 response = model.generate_content([g_file, prompt])
                 srt_out = response.text.strip()
                 
-                # Markdown block များ သန့်စင်ခြင်း
                 if "```" in srt_out:
                     srt_out = srt_out.split("```")[1].replace("srt", "").strip()
                 
@@ -70,25 +69,32 @@ with tab1:
                 if os.path.exists(temp_path):
                     os.remove(temp_path)
 
-# --- Step 2: English to Myanmar ---
+# --- Step 2: English to Myanmar (Using Deep Translator) ---
 with tab2:
-    st.header("Step 2: အင်္ဂလိပ် SRT ကို မြန်မာဘာသာပြန်ခြင်း")
+    st.header("Step 2: အင်္ဂလိပ် SRT ကို မြန်မာဘာသာပြန်ခြင်း (API Key မလိုပါ)")
     st.write("Step 1 မှ ရလာသော .srt ဖိုင်ကို ပြန်တင်ပေးပါ။")
     srt_file = st.file_uploader("English SRT တင်ပါ", type=["srt"], key="s2")
     
     if srt_file and st.button("Translate to Myanmar"):
         with st.spinner("မြန်မာလို ဘာသာပြန်နေပါသည်..."):
             eng_txt = srt_file.read().decode("utf-8")
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            prompt = f"Translate this English SRT to natural, high-quality Myanmar language. Keep timestamps exactly the same. Output ONLY SRT content: \n\n{eng_txt}"
+            lines = eng_txt.split('\n')
+            translated_srt = ""
             
-            response = model.generate_content(prompt)
-            mm_srt = response.text.strip()
+            # API Key မလိုဘဲ အတည်ငြိမ်ဆုံး ဘာသာပြန်စနစ်ကို သုံးထားပါတယ်
+            translator = GoogleTranslator(source='en', target='my')
             
-            if "```" in mm_srt:
-                mm_srt = mm_srt.split("```")[1].replace("srt", "").strip()
+            for line in lines:
+                if line.strip() and not line.strip().isdigit() and "-->" not in line:
+                    try:
+                        translated = translator.translate(line)
+                        translated_srt += translated + "\n"
+                    except:
+                        translated_srt += line + "\n"
+                else:
+                    translated_srt += line + "\n"
             
             st.success("မြန်မာဘာသာပြန်ပြီးပါပြီ!")
-            st.download_button("Download Myanmar SRT", mm_srt, "myanmar_sub.srt")
-            st.text_area("Preview (Myanmar)", mm_srt, height=200)
+            st.download_button("Download Myanmar SRT", translated_srt, "myanmar_final.srt")
+            st.text_area("Preview (Myanmar)", translated_srt, height=200)
             
