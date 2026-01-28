@@ -3,6 +3,6 @@ moviepy==1.0.3
 pysubs2
 pillow
 numpy<2.0.0
-gTTS
+edge-tts>=6.1.9
 anyio
 google-generativeai
