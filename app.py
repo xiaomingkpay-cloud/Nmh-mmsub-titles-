@@ -1,92 +1,77 @@
 import streamlit as st
-import google.generativeai as genai
-import time
+import whisper
 import os
+from datetime import timedelta
+from deep_translator import GoogleTranslator
 
-# --- Gemini API Config ---
-# ညီကိုပေးထားတဲ့ Key အသစ်ကို ဒီမှာ ထည့်သွင်းထားပါတယ်
-GEMINI_API_KEY = "AIzaSyAqugREh5sZDVJQBuuy-fXBgN2V9o8pAfQ"
-genai.configure(api_key=GEMINI_API_KEY)
-
-# --- Functions ---
-def upload_to_gemini(path, mime_type=None):
-    file = genai.upload_file(path, mime_type=mime_type)
-    return file
-
-def wait_for_files_active(files):
-    for name in (f.name for f in files):
-        file = genai.get_file(name)
-        while file.state.name == "PROCESSING":
-            time.sleep(2)
-            file = genai.get_file(name)
-        if file.state.name != "ACTIVE":
-            raise Exception(f"File {file.name} failed to process")
+# အချိန်မှတ်တမ်း Format ပြောင်းသည့် Function
+def format_timestamp(seconds):
+    td = timedelta(seconds=seconds)
+    total_seconds = int(td.total_seconds())
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    secs = total_seconds % 60
+    millis = int(td.microseconds / 1000)
+    return f"{hours:02}:{minutes:02}:{secs:02},{millis:03}"
 
 # --- UI Interface ---
-st.set_page_config(page_title="NMH Visual Subtitle Maker", layout="wide")
-st.title("🎬 NMH Gemini Visual Subtitle Maker")
+st.set_page_config(page_title="NMH Free Subtitle Tool", layout="wide")
+st.title("🎬 NMH 100% Free AI Subtitle Maker")
 
 tab1, tab2 = st.tabs(["Step 1: Video to English SRT", "Step 2: English SRT to Myanmar"])
 
-# --- Step 1: Video to English (Visual Based) ---
+# --- Part 1: Video to English SRT ---
 with tab1:
-    st.header("Step 1: ဗီဒီယိုထဲက စာသားကိုကြည့်ပြီး အင်္ဂလိပ် SRT ထုတ်ယူခြင်း")
+    st.header("Step 1: ဗီဒီယိုမှ အင်္ဂလိပ်စာတန်းထုတ်ယူခြင်း (Whisper)")
     video_file = st.file_uploader("Video တင်ပါ", type=["mp4", "mov", "avi"], key="v1")
     
     if video_file and st.button("Generate English SRT"):
-        with st.spinner("Gemini က ဗီဒီယိုထဲက စာသားတွေကို ဖတ်နေပါသည်..."):
-            temp_path = "temp_v.mp4"
-            with open(temp_path, "wb") as f:
+        with st.spinner("AI က အသံကို နားထောင်ပြီး အင်္ဂလိပ်လို ပြန်ပေးနေပါသည်..."):
+            with open("temp_v.mp4", "wb") as f:
                 f.write(video_file.getbuffer())
             
-            try:
-                g_file = upload_to_gemini(temp_path, mime_type="video/mp4")
-                wait_for_files_active([g_file])
-                
-                # Model ကို 404 Error မတက်နိုင်သော အသေချာဆုံး format ဖြင့် ခေါ်ယူခြင်း
-                model = genai.GenerativeModel('gemini-1.5-flash')
-                
-                prompt = """
-                Watch the video carefully. Focus on any hard-coded Chinese subtitles on the screen. 
-                Translate the visual Chinese text into clear English. 
-                Output ONLY as a raw SRT file with precise timestamps. No extra talk.
-                """
-                
-                response = model.generate_content([g_file, prompt])
-                srt_out = response.text.strip()
-                
-                if "```" in srt_out:
-                    srt_out = srt_out.split("```")[1].replace("srt", "").strip()
-                
-                st.success("အင်္ဂလိပ် SRT ထုတ်ယူပြီးပါပြီ!")
-                st.download_button("Download English SRT", srt_out, "english.srt")
-                st.text_area("Preview (English)", srt_out, height=200)
-                
-            except Exception as e:
-                st.error(f"Error: {e}")
-            finally:
-                if os.path.exists(temp_path):
-                    os.remove(temp_path)
+            # Whisper က အခမဲ့ သုံးလို့ရတဲ့ model ဖြစ်ပါတယ်
+            model = whisper.load_model("base")
+            result = model.transcribe("temp_v.mp4", task="translate")
+            
+            srt_eng = ""
+            for i, segment in enumerate(result['segments'], start=1):
+                start = format_timestamp(segment['start'])
+                end = format_timestamp(segment['end'])
+                text = segment['text'].strip()
+                srt_eng += f"{i}\n{start} --> {end}\n{text}\n\n"
+            
+            st.success("English SRT ရပါပြီ!")
+            st.download_button("Download English SRT", srt_eng, "english.srt")
+            st.text_area("English Preview", srt_eng, height=200)
+            os.remove("temp_v.mp4")
 
-# --- Step 2: English to Myanmar ---
+# --- Part 2: English SRT to Myanmar ---
 with tab2:
-    st.header("Step 2: အင်္ဂလိပ် SRT ကို မြန်မာဘာသာပြန်ခြင်း")
-    st.write("Step 1 မှ ရလာသော .srt ဖိုင်ကို ပြန်တင်ပေးပါ။")
-    srt_file = st.file_uploader("English SRT တင်ပါ", type=["srt"], key="s2")
+    st.header("Step 2: အင်္ဂလိပ် SRT မှ မြန်မာဘာသာသို့ ပြောင်းလဲခြင်း (Free)")
+    srt_input = st.file_uploader("English SRT ဖိုင်ကို တင်ပါ", type=["srt"], key="s2")
     
-    if srt_file and st.button("Translate to Myanmar"):
-        with st.spinner("မြန်မာလို ဘာသာပြန်နေပါသည်..."):
-            eng_txt = srt_file.read().decode("utf-8")
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            prompt = f"Translate this English SRT to natural, high-quality Myanmar language. Keep timestamps exactly the same. Output ONLY SRT content: \n\n{eng_txt}"
+    if srt_input and st.button("Translate to Myanmar"):
+        with st.spinner("မြန်မာလို အခမဲ့ ဘာသာပြန်ပေးနေပါသည်..."):
+            eng_content = srt_input.read().decode("utf-8")
+            lines = eng_content.split('\n')
+            translated_srt = ""
             
-            response = model.generate_content(prompt)
-            mm_srt = response.text.strip()
+            # API Key လုံးဝ မလိုသော Translator ဖြစ်ပါတယ်
+            translator = GoogleTranslator(source='en', target='my')
             
-            if "```" in mm_srt:
-                mm_srt = mm_srt.split("```")[1].replace("srt", "").strip()
+            for line in lines:
+                # အချိန် သို့မဟုတ် ဂဏန်းမဟုတ်လျှင် ဘာသာပြန်မည်
+                if line.strip() and not line.strip().isdigit() and "-->" not in line:
+                    try:
+                        translated = translator.translate(line)
+                        translated_srt += translated + "\n"
+                    except:
+                        translated_srt += line + "\n"
+                else:
+                    translated_srt += line + "\n"
             
-            st.success("မြန်မာဘာသာပြန်ပြီးပါပြီ!")
-            st.download_button("Download Myanmar SRT", mm_srt, "myanmar_sub.srt")
-            st.text_area("Preview (Myanmar)", mm_srt, height=200)
-            
+            st.success("မြန်မာ SRT ဘာသာပြန်ခြင်း အောင်မြင်ပါသည်!")
+            st.download_button("Download Myanmar SRT", translated_srt, "myanmar_final.srt")
+            st.text_area("Myanmar Preview", translated_srt, height=200)
+
