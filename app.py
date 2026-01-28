@@ -4,6 +4,8 @@ import pysubs2
 import numpy as np
 import asyncio
 import edge_tts
+import google.generativeai as genai
+import time
 from datetime import datetime
 from streamlit.web.server.websocket_headers import _get_websocket_headers
 from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip, AudioFileClip, CompositeAudioClip
@@ -13,39 +15,27 @@ from PIL import Image, ImageDraw, ImageFont
 st.set_page_config(page_title="NMH Pro Creator Mood", layout="wide")
 
 # ==========================================
-# 🎨 BACKGROUND SYSTEM (RAW GITHUB LINK)
+# 🔑 GEMINI API SETUP (အရေးကြီး)
 # ==========================================
-# ညီကို့ပုံရဲ့ Raw Link အမှန်
-bg_url = "https://raw.githubusercontent.com/xiaomingkpay-cloud/Nmh-mmsub-titles-/main/IMG_20260128_234239_629.jpg"
+# ညီကို့ရဲ့ Google AI Studio API Key ကို ဒီနေရာမှာ ထည့်ပါ
+# "YOUR_GEMINI_API_KEY" နေရာမှာ Key အစစ်ထည့်ပါ
+GEMINI_API_KEY = "YOUR_GEMINI_API_KEY" 
 
-st.markdown(
-    f"""
-    <style>
-    .stApp {{
-        /* ပုံကို အနောက်မှာ ထားခြင်း */
-        background-image: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), url("{bg_url}");
-        background-attachment: fixed;
-        background-size: cover;
-        background-position: center;
-    }}
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+if GEMINI_API_KEY != "YOUR_GEMINI_API_KEY":
+    genai.configure(api_key=GEMINI_API_KEY)
 
 # ==========================================
-# 🛡️ HARD LIMIT SYSTEM
+# 🛡️ SECURITY & TRACKER
 # ==========================================
 @st.cache_resource
-def get_usage_tracker():
-    return {"date": datetime.now().strftime("%Y-%m-%d"), "users": {}}
+def get_usage_data():
+    return {"date": datetime.now().strftime("%Y-%m-%d"), "users": {}, "bindings": {}}
 
-usage_tracker = get_usage_tracker()
-
+usage_data = get_usage_data()
 current_date = datetime.now().strftime("%Y-%m-%d")
-if usage_tracker["date"] != current_date:
-    usage_tracker["date"] = current_date
-    usage_tracker["users"] = {} 
+if usage_data["date"] != current_date:
+    usage_data["date"] = current_date
+    usage_data["users"] = {} 
 
 def get_remote_ip():
     try:
@@ -64,39 +54,104 @@ st.markdown("""
 """)
 st.success("📢 Facebook / TikTok / VPN / Follower နှင့် တခြား Premium Service များလဲ ရသည်!")
 
-tab1, tab2 = st.tabs(["Option 1: စာတန်းထိုး (Free - 3 Files/Day) 🆓", "Option 2: အသံထည့် (Pro Version) 🔐"])
+# TAB 3 ခု ခွဲလိုက်ပါသည်
+tab1, tab2, tab3 = st.tabs(["Tab 1: 🤖 Auto SRT (AI)", "Tab 2: 📝 စာတန်းမြှုပ် (Free)", "Tab 3: 🗣️ အသံထည့် (Pro)"])
 
 # ==========================================
-# OPTION 1: FREE VERSION
+# TAB 1: AUTO SUBTITLE GENERATOR (GEMINI)
 # ==========================================
 with tab1:
-    st.header("Option 1: Video ထဲသို့ မြန်မာစာတန်း အသေမြှုပ်ခြင်း (Free)")
+    st.header("🤖 AI ဖြင့် မြန်မာစာတန်း (SRT) အလိုအလျောက်ထုတ်ယူခြင်း")
+    st.info("Video တင်လိုက်ပါ၊ AI က စကားပြောများကို နားထောင်ပြီး SRT ဖိုင် ထုတ်ပေးပါမည်။")
+
+    if GEMINI_API_KEY == "YOUR_GEMINI_API_KEY":
+        st.error("⚠️ System Error: Admin မှ API Key မထည့်ရသေးပါ။")
+        st.stop()
+
+    gen_video = st.file_uploader("Video ဖိုင်တင်ပါ (To Generate SRT)", type=["mp4", "mov", "avi"], key="gen_v")
+
+    if gen_video and st.button("Generate Myanmar SRT Now 🚀"):
+        with st.spinner("AI သို့ Video ပို့ဆောင်နေပါသည် (ခဏစောင့်ပါ)..."):
+            # Save Temp Video
+            temp_gen_path = "temp_gen.mp4"
+            with open(temp_gen_path, "wb") as f: f.write(gen_video.getbuffer())
+
+            try:
+                # 1. Upload to Gemini
+                video_file = genai.upload_file(path=temp_gen_path)
+                
+                # 2. Wait for processing
+                while video_file.state.name == "PROCESSING":
+                    time.sleep(2)
+                    video_file = genai.get_file(video_file.name)
+
+                if video_file.state.name == "FAILED":
+                    st.error("AI မှ Video ကို ဖတ်မရပါ။ Video ဖိုင် ပျက်နေနိုင်ပါသည်။")
+                    st.stop()
+
+                # 3. Generate Content
+                st.info("AI မှ Video ကို နားထောင်ပြီး စာရေးနေပါသည်...")
+                model = genai.GenerativeModel(model_name="gemini-1.5-flash")
+                
+                prompt = """
+                Listen to the video carefully. Generate a subtitle file in SRT format for the Burmese (Myanmar) speech.
+                Ensure the timestamps are accurate.
+                Do not include any intro or outro text.
+                Output ONLY the SRT content.
+                """
+                
+                response = model.generate_content([video_file, prompt], request_options={"timeout": 600})
+                srt_content = response.text
+
+                # 4. Save & Download
+                output_srt = "generated_subtitle.srt"
+                # Clean up ```srt markdown if exists
+                srt_content = srt_content.replace("```srt", "").replace("```", "").strip()
+                
+                with open(output_srt, "w", encoding="utf-8") as f:
+                    f.write(srt_content)
+                
+                st.success("✅ SRT ဖိုင် ရရှိပါပြီ!")
+                with open(output_srt, "rb") as f:
+                    st.download_button("Download SRT File", f.read(), "myanmar.srt", "text/plain")
+                    
+                # Cleanup Cloud File to save quota
+                genai.delete_file(video_file.name)
+
+            except Exception as e:
+                st.error(f"Error: {e}")
+            
+            if os.path.exists(temp_gen_path): os.remove(temp_gen_path)
+
+# ==========================================
+# TAB 2: BURN SUBTITLE (FREE LIMIT)
+# ==========================================
+with tab2:
+    st.header("Tab 2: ရလာသော SRT ကို Video တွင် အသေမြှုပ်ခြင်း")
     
     user_ip = get_remote_ip()
-    if user_ip not in usage_tracker["users"]: usage_tracker["users"][user_ip] = 0
-    usage_left = 3 - usage_tracker["users"][user_ip]
+    if user_ip not in usage_data["users"]: usage_data["users"][user_ip] = 0
+    usage_left = 3 - usage_data["users"][user_ip]
     
     if usage_left > 0:
-        st.info(f"✅ ယနေ့အတွက် လက်ကျန်: {usage_left} ပုဒ် (Used: {usage_tracker['users'][user_ip]}/3)")
-        st.caption(f"Your ID: {user_ip}")
+        st.info(f"✅ ယနေ့အတွက် လက်ကျန်: {usage_left} ပုဒ်")
     else:
-        st.error("⛔ ယနေ့အတွက် Free Limit ပြည့်သွားပါပြီ! Pro Code ဝယ်ယူပါ။")
+        st.error("⛔ Free Limit ပြည့်သွားပါပြီ! Pro Code ဝယ်ယူပါ။")
 
     col1, col2 = st.columns(2)
-    with col1: v1_file = st.file_uploader("Video ဖိုင် (Sub)", type=["mp4", "mov", "avi"], key="v1")
-    with col2: s1_file = st.file_uploader("SRT ဖိုင် (Sub)", type=["srt"], key="s1")
+    with col1: v1_file = st.file_uploader("Video ဖိုင်", type=["mp4", "mov", "avi"], key="v1")
+    with col2: s1_file = st.file_uploader("SRT ဖိုင်", type=["srt"], key="s1")
 
+    # (Helper Function - Same as before)
     def generate_subtitle_clips(subtitle_path, video_width, video_height, font_path):
         subs = pysubs2.load(subtitle_path, encoding="utf-8")
         subtitle_clips = []
         fontsize = int(video_width / 25)
         try: font = ImageFont.truetype(font_path, fontsize)
         except: font = ImageFont.load_default()
-
         for line in subs:
             if not line.text.strip(): continue
-            text_w = int(video_width * 0.9)
-            text_h = int(video_height * 0.25)
+            text_w, text_h = int(video_width * 0.9), int(video_height * 0.25)
             img = Image.new('RGBA', (text_w, text_h), (255, 255, 255, 0))
             draw = ImageDraw.Draw(img)
             text_content = line.text.replace("\\N", "\n")
@@ -107,75 +162,84 @@ with tab1:
             subtitle_clips.append(clip)
         return subtitle_clips
 
-    if usage_left > 0:
-        if v1_file and s1_file and st.button("စာတန်းမြှုပ်မည် (Start Burning)", key="btn_free"):
-            with st.spinner("စာတန်းထည့်ပြီး ဖိုင်ချုံ့နေပါသည်..."):
-                vp, sp, fp, op = "temp_v1.mp4", "temp_s1.srt", "myanmar_font.ttf", "output_sub.mp4"
-                with open(vp, "wb") as f: f.write(v1_file.getbuffer())
-                with open(sp, "wb") as f: f.write(s1_file.getbuffer())
-                
-                if not os.path.exists(fp):
-                    st.error("GitHub တွင် 'myanmar_font.ttf' မရှိပါ။")
-                else:
-                    try:
-                        video = VideoFileClip(vp)
-                        sub_clips = generate_subtitle_clips(sp, video.w, video.h, fp)
-                        final_video = CompositeVideoClip([video] + sub_clips)
-                        
-                        final_video.write_videofile(
-                            op, fps=24, codec='libx264', preset='veryfast', 
-                            audio_codec='aac', threads=4, ffmpeg_params=["-crf", "28"] 
-                        )
-                        
-                        usage_tracker["users"][user_ip] += 1
-                        st.success(f"ပြီးပါပြီ!")
-                        with open(op, "rb") as f: st.download_button("Download Video", f.read(), "subbed_video.mp4", "video/mp4")
-                    except Exception as e: st.error(f"Error: {e}")
-                
-                if os.path.exists(vp): os.remove(vp)
-                if os.path.exists(sp): os.remove(sp)
-                if os.path.exists(op): os.remove(op)
-    else:
-        st.warning("⛔ Limit ပြည့်သွားပါပြီ။")
+    if usage_left > 0 and v1_file and s1_file and st.button("စာတန်းမြှုပ်မည် (Start Burning)", key="btn_free"):
+        with st.spinner("Processing..."):
+            vp, sp, fp, op = "temp_v1.mp4", "temp_s1.srt", "myanmar_font.ttf", "output_sub.mp4"
+            with open(vp, "wb") as f: f.write(v1_file.getbuffer())
+            with open(sp, "wb") as f: f.write(s1_file.getbuffer())
+            
+            if not os.path.exists(fp): st.error("Font Missing!")
+            else:
+                try:
+                    video = VideoFileClip(vp)
+                    sub_clips = generate_subtitle_clips(sp, video.w, video.h, fp)
+                    final_video = CompositeVideoClip([video] + sub_clips)
+                    final_video.write_videofile(op, fps=24, codec='libx264', preset='veryfast', audio_codec='aac', threads=4, ffmpeg_params=["-crf", "28"])
+                    
+                    usage_data["users"][user_ip] += 1
+                    st.success("Success!")
+                    with open(op, "rb") as f: st.download_button("Download Video", f.read(), "subbed_video.mp4", "video/mp4")
+                except Exception as e: st.error(f"Error: {e}")
+            if os.path.exists(vp): os.remove(vp)
+            if os.path.exists(sp): os.remove(sp)
+            if os.path.exists(op): os.remove(op)
 
 # ==========================================
-# OPTION 2: PRO VERSION
+# TAB 3: PRO VERSION (AI DUBBING)
 # ==========================================
-with tab2:
-    st.header("Option 2: Video အသံထည့်ခြင်း (Pro Member Only)")
+with tab3:
+    st.header("Tab 3: Video အသံထည့်ခြင်း (Pro Member)")
     
     if "user_info" not in st.session_state: st.session_state.user_info = None
+    
     if st.session_state.user_info is None:
-        st.warning("🔒 Pro Code လိုအပ်ပါသည်။")
+        st.warning("🔒 Feature Locked.")
         col_pass1, _ = st.columns([3, 1])
         with col_pass1: token_input = st.text_input("Pro Access Token:", type="password", key="pro_token")
-        if st.button("Login to Pro Mode"):
+        
+        if st.button("Login"):
             if "users" in st.secrets and token_input in st.secrets["users"]:
-                st.session_state.user_info = st.secrets["users"][token_input]
-                st.rerun()
-            else: st.error("Code မှားယွင်းနေပါသည်။")
+                current_ip = get_remote_ip()
+                if token_input == "nmh-123": 
+                    st.session_state.user_info = st.secrets["users"][token_input]
+                    st.rerun()
+                else:
+                    if token_input not in usage_data["bindings"]:
+                        usage_data["bindings"][token_input] = current_ip
+                        st.session_state.user_info = st.secrets["users"][token_input]
+                        st.rerun()
+                    elif usage_data["bindings"][token_input] == current_ip:
+                        st.session_state.user_info = st.secrets["users"][token_input]
+                        st.rerun()
+                    else: st.error("⛔ Device Locked")
+            else: st.error("Invalid Code")
         st.stop()
 
-    st.success(f"✅ Pro Mode Active: {st.session_state.user_info}")
+    st.success(f"✅ Welcome {st.session_state.user_info}")
+    if "Admin" in st.session_state.user_info:
+        if st.button("Reset Locks"):
+            usage_data["bindings"] = {}
+            st.success("Reset Done!")
+    
     if st.button("Logout"):
         st.session_state.user_info = None
         st.rerun()
     st.write("---")
     
     col3, col4 = st.columns(2)
-    with col3: v2_file = st.file_uploader("Video ဖိုင် (Dub)", type=["mp4", "mov", "avi"], key="v2")
-    with col4: s2_file = st.file_uploader("SRT ဖိုင် (Dub)", type=["srt"], key="s2")
+    with col3: v2_file = st.file_uploader("Video (Dub)", type=["mp4", "mov", "avi"], key="v2")
+    with col4: s2_file = st.file_uploader("SRT (Dub)", type=["srt"], key="s2")
     
-    voice_option = st.selectbox("အသံရွေးချယ်ပါ", ("Female (Thiri)", "Male (Sai Nyi)"))
+    voice_option = st.selectbox("Voice", ("Female (Thiri)", "Male (Sai Nyi)"))
     VOICE_ID = "my-MM-ThiriNeural" if "Female" in voice_option else "my-MM-SaiNyiNeural"
-    keep_original = st.checkbox("မူရင်း Video အသံကို မဖျက်ဘဲထားမည်", value=False)
+    keep_original = st.checkbox("Keep Original Audio (Background)", value=False)
 
     async def generate_voice(text, output_file, voice_id):
         communicate = edge_tts.Communicate(text, voice_id)
         await communicate.save(output_file)
 
-    if v2_file and s2_file and st.button("အသံထည့်မည် (Start Dubbing)", key="btn_pro"):
-        with st.spinner(f"အသံထည့်ပြီး ဖိုင်ချုံ့နေပါသည်..."):
+    if v2_file and s2_file and st.button("Start Dubbing", key="btn_pro"):
+        with st.spinner("Processing..."):
             vp2, sp2, op2 = "temp_v2.mp4", "temp_s2.srt", "output_dub.mp4"
             with open(vp2, "wb") as f: f.write(v2_file.getbuffer())
             with open(sp2, "wb") as f: f.write(s2_file.getbuffer())
@@ -187,8 +251,7 @@ with tab2:
                 if keep_original and video.audio is not None:
                     audio_clips.append(video.audio.volumex(0.3))
                 
-                generated_files = []
-                progress_bar = st.progress(0)
+                generated_files, progress_bar = [], st.progress(0)
                 for i, line in enumerate(subs):
                     if not line.text.strip(): continue
                     text = line.text.replace("\\N", " ")
@@ -198,16 +261,12 @@ with tab2:
                     if os.path.exists(temp_audio):
                         audioclip = AudioFileClip(temp_audio).set_start(line.start / 1000)
                         audio_clips.append(audioclip)
-                    progress_bar.progress((i + 1) / len(subs))
+                    progress_bar.progress((i+1)/len(subs))
             
                 final_video = video.set_audio(CompositeAudioClip(audio_clips))
-                final_video.write_videofile(
-                    op2, fps=24, codec='libx264', preset='veryfast', 
-                    audio_codec='aac', threads=4, ffmpeg_params=["-crf", "28"]
-                )
-                
-                st.success("ပြီးပါပြီ!")
-                with open(op2, "rb") as f: st.download_button("Download Video", f.read(), "myanmar_dubbed.mp4", "video/mp4")
+                final_video.write_videofile(op2, fps=24, codec='libx264', preset='veryfast', audio_codec='aac', threads=4, ffmpeg_params=["-crf", "28"])
+                st.success("Success!")
+                with open(op2, "rb") as f: st.download_button("Download Dubbed Video", f.read(), "dubbed.mp4", "video/mp4")
                 for f in generated_files: os.remove(f)
             except Exception as e: st.error(f"Error: {e}")
             if os.path.exists(vp2): os.remove(vp2)
