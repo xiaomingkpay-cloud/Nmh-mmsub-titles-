@@ -2,8 +2,7 @@ import streamlit as st
 import os
 import pysubs2
 import numpy as np
-import asyncio
-import edge_tts
+import subprocess
 import google.generativeai as genai
 from datetime import datetime
 from streamlit.web.server.websocket_headers import _get_websocket_headers
@@ -50,7 +49,7 @@ st.markdown("""
 """)
 st.success("📢 Facebook / TikTok / VPN / Follower နှင့် တခြား Premium Service များလဲ ရသည်!")
 
-tab1, tab2, tab3 = st.tabs(["Tab 1: 🌐 Get SRT (Gemini)", "Tab 2: 📝 စာတန်းမြှုပ် (Free)", "Tab 3: 🗣️ အသံထည့် (Pro - Original Voice)"])
+tab1, tab2, tab3 = st.tabs(["Tab 1: 🌐 Get SRT (Gemini)", "Tab 2: 📝 စာတန်းမြှုပ် (Free)", "Tab 3: 🗣️ အသံထည့် (Pro - Speed Mode)"])
 
 # ==========================================
 # TAB 1: GEMINI (Manual)
@@ -128,13 +127,14 @@ with tab2:
             if os.path.exists(op): os.remove(op)
 
 # ==========================================
-# TAB 3: PRO VERSION (EDGE-TTS FIXED)
+# TAB 3: PRO VERSION (CLI METHOD - NO ERROR)
 # ==========================================
 with tab3:
-    st.header("Tab 3: Video အသံထည့်ခြင်း (Pro - Original Voices)")
+    st.header("Tab 3: Video အသံထည့်ခြင်း (Fast AI Voice)")
     
     if "user_info" not in st.session_state: st.session_state.user_info = None
     
+    # Login Logic
     if st.session_state.user_info is None:
         st.warning("🔒 Feature Locked.")
         col_pass1, _ = st.columns([3, 1])
@@ -174,35 +174,41 @@ with tab3:
     with col4: s2_file = st.file_uploader("SRT (Dub)", type=["srt"], key="s2")
     
     voice_option = st.selectbox("Voice Selection", ("Female (Thiri) - မသီရိ", "Male (Sai Nyi) - ကိုစိုင်းညီ"))
+    VOICE_ID = "my-MM-ThiriNeural" if "Female" in voice_option else "my-MM-SaiNyiNeural"
     
-    if "Female" in voice_option:
-        VOICE_ID = "my-MM-ThiriNeural"
-    else:
-        VOICE_ID = "my-MM-SaiNyiNeural"
+    # Speed Control (စကားပြောမြန်နှုန်း)
+    speed_boost = st.select_slider("စကားပြောနှုန်း (Speaking Rate)", options=["Normal", "Fast (+10%)", "Very Fast (+20%)"], value="Fast (+10%)")
+    
+    RATE_CMD = "+0%"
+    if speed_boost == "Fast (+10%)": RATE_CMD = "+10%"
+    elif speed_boost == "Very Fast (+20%)": RATE_CMD = "+20%"
 
     keep_original = st.checkbox("Keep Original Audio (Background)", value=True)
 
-    # --- ROBUST AUDIO GENERATION FUNCTION ---
-    async def generate_voice_robust(text, output_file, voice_id):
-        # စာသားသန့်ရှင်းရေး (Remove special chars that break TTS)
-        clean_text = text.replace("*", "").replace("-", "").strip()
+    # --- CLI GENERATION (NO ASYNC ERROR) ---
+    def generate_voice_cli(text, output_file, voice_id, rate):
+        # စာသားသန့်ရှင်းရေး
+        clean_text = text.replace('"', '').replace("'", "").strip()
         if not clean_text: return False
         
-        # 3 ခါထိ ပြန်ကြိုးစားမည့်စနစ် (Retry System)
-        for attempt in range(3):
-            try:
-                communicate = edge_tts.Communicate(clean_text, voice_id)
-                await communicate.save(output_file)
-                # ဖိုင်ဆိုဒ်ကို စစ်ခြင်း (0KB ဆိုရင် မအောင်မြင်ဘူးလို့ ယူဆမယ်)
-                if os.path.exists(output_file) and os.path.getsize(output_file) > 100:
-                    return True
-            except Exception as e:
-                print(f"Attempt {attempt+1} failed: {e}")
-                await asyncio.sleep(1) # ခဏစောင့်ပြီး ပြန်စမ်းမယ်
-        return False
+        # Command Line မှတဆင့် တိုက်ရိုက်မောင်းခြင်း (Error ကင်းစင်)
+        # edge-tts --text "Hello" --write-media out.mp3 --voice my-MM-ThiriNeural --rate=+10%
+        try:
+            command = [
+                "edge-tts",
+                "--text", clean_text,
+                "--write-media", output_file,
+                "--voice", voice_id,
+                "--rate", rate
+            ]
+            subprocess.run(command, check=True)
+            return True
+        except Exception as e:
+            print(f"CLI Error: {e}")
+            return False
 
-    if v2_file and s2_file and st.button("Start Dubbing (Original Voice)", key="btn_pro"):
-        with st.spinner("အသံထည့်နေပါသည် (Connection ကောင်းရန် လိုအပ်ပါသည်)..."):
+    if v2_file and s2_file and st.button("Start Dubbing (Fast Mode)", key="btn_pro"):
+        with st.spinner("အသံသွင်းနေပါသည် (Speed Mode)..."):
             vp2, sp2, op2 = "temp_v2.mp4", "temp_s2.srt", "output_dub.mp4"
             with open(vp2, "wb") as f: f.write(v2_file.getbuffer())
             with open(sp2, "wb") as f: f.write(s2_file.getbuffer())
@@ -228,10 +234,10 @@ with tab3:
                     text = line.text.replace("\\N", " ")
                     temp_audio = f"temp_aud_{i}.mp3"
                     
-                    # Safe Generation Call
-                    is_success = asyncio.run(generate_voice_robust(text, temp_audio, VOICE_ID))
+                    # Call CLI Generator
+                    is_success = generate_voice_cli(text, temp_audio, VOICE_ID, RATE_CMD)
                     
-                    if is_success:
+                    if is_success and os.path.exists(temp_audio):
                         generated_files.append(temp_audio)
                         try:
                             audioclip = AudioFileClip(temp_audio)
@@ -252,10 +258,10 @@ with tab3:
                         audio_codec='aac', threads=4, ffmpeg_params=["-crf", "23"]
                     )
                     
-                    st.success(f"Success! (Lines generated: {success_count}/{total_lines})")
-                    with open(op2, "rb") as f: st.download_button("Download Video", f.read(), "dubbed_fixed.mp4", "video/mp4")
+                    st.success(f"Success! (Created {success_count} lines)")
+                    with open(op2, "rb") as f: st.download_button("Download Dubbed Video", f.read(), "dubbed_fast.mp4", "video/mp4")
                 else:
-                    st.error("Error: အသံဖိုင် လုံးဝ ထုတ်မရပါ။ Internet Connection စစ်ဆေးပါ သို့မဟုတ် စာသားများ ပြင်ဆင်ပါ။")
+                    st.error("Error: အသံဖိုင် ထုတ်မရပါ။ (CLI Error)")
 
                 for f in generated_files: 
                     if os.path.exists(f): os.remove(f)
