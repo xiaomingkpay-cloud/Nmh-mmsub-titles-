@@ -1,28 +1,13 @@
 import streamlit as st
 import os
 import pysubs2
-import numpy as np
-import google.generativeai as genai
 from datetime import datetime
 from streamlit.web.server.websocket_headers import _get_websocket_headers
-from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip, AudioFileClip, CompositeAudioClip
+from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip, CompositeVideoClip
 from PIL import Image, ImageDraw, ImageFont
-from gtts import gTTS
-import subprocess
-import nest_asyncio
-
-# Loop Fix
-nest_asyncio.apply()
 
 # Website ခေါင်းစဉ်
 st.set_page_config(page_title="NMH Pro Creator Mood", layout="wide")
-
-# ==========================================
-# 🔑 GEMINI API (Tab 1)
-# ==========================================
-GEMINI_API_KEY = "YOUR_GEMINI_API_KEY" # ညီကို့ Key ထည့်ပါ
-if GEMINI_API_KEY != "YOUR_GEMINI_API_KEY":
-    genai.configure(api_key=GEMINI_API_KEY)
 
 # ==========================================
 # 🛡️ SECURITY & TRACKER
@@ -49,24 +34,24 @@ def get_remote_ip():
 # 🏠 HEADER
 # ==========================================
 st.title("✨ NMH Pro Creator Mood")
-st.markdown("""
-**📞 Contact Creator:** Facebook: [NMH Facebook](https://www.facebook.com/share/16pXwBsqte) | Telegram: [@xiaoming2025nmx](https://t.me/xiaoming2025nmx)
-""")
-st.success("📢 Facebook / TikTok / VPN / Follower နှင့် တခြား Premium Service များလဲ ရသည်!")
+st.success("📢 Manual Workflow: Error Free & High Quality Audio")
 
-tab1, tab2, tab3 = st.tabs(["Tab 1: 🌐 Get SRT (Gemini)", "Tab 2: 📝 စာတန်းမြှုပ် (Free)", "Tab 3: 🗣️ အသံထည့် (Pro - Turbo Engine)"])
+# TAB 4 ခု (ညီကိုလိုချင်တဲ့ ပုံစံအတိုင်း)
+tab1, tab2, tab3, tab4 = st.tabs([
+    "Tab 1: 🌐 Get SRT", 
+    "Tab 2: 📝 Burn Sub (Free)", 
+    "Tab 3: 🗣️ Get Audio (Google Studio)", 
+    "Tab 4: 🎬 Merge Video & Audio (Final)"
+])
 
 # ==========================================
-# TAB 1 & 2 (Standard)
+# TAB 1: GEMINI SRT (TEXT ONLY)
 # ==========================================
 with tab1:
     st.header("အဆင့် ၁ - Gemini မှ SRT စာသားတောင်းယူပါ")
-    st.link_button("🚀 Go to Google Gemini App/Web", "https://gemini.google.com/")
-    st.write("Gemini တွင် 'Generate Myanmar SRT file for this video' ဟု ရေးပြီး တောင်းပါ။")
-    st.write("---")
-    st.header("အဆင့် ၂ - ရလာသော စာသားကို SRT ဖိုင်ပြောင်းပါ")
+    st.link_button("🚀 Go to Google Gemini Chat", "https://gemini.google.com/")
+    st.info("Prompt: 'Generate Myanmar SRT file for this video...'")
     srt_text_input = st.text_area("Gemini မှပေးလိုက်သော SRT စာသားများကို ဒီအကွက်ထဲ Paste ချပါ:", height=300)
-    
     if srt_text_input and st.button("SRT ဖိုင်အဖြစ် ပြောင်းမည်"):
         clean_text = srt_text_input.replace("```srt", "").replace("```", "").strip()
         output_srt = "manual_converted.srt"
@@ -74,11 +59,15 @@ with tab1:
         st.success("✅ SRT ဖိုင် ရရှိပါပြီ!")
         with open(output_srt, "rb") as f: st.download_button("Download SRT", f.read(), "myanmar.srt", "text/plain")
 
+# ==========================================
+# TAB 2: BURN SUBTITLE (FREE)
+# ==========================================
 with tab2:
     st.header("Tab 2: စာတန်းမြှုပ်ခြင်း (Free)")
     user_ip = get_remote_ip()
     if user_ip not in usage_data["users"]: usage_data["users"][user_ip] = 0
     usage_left = 3 - usage_data["users"][user_ip]
+    
     if usage_left > 0: st.info(f"✅ Free Limit: {usage_left}/3 left")
     else: st.error("⛔ Limit Reached")
 
@@ -86,6 +75,7 @@ with tab2:
     with col1: v1_file = st.file_uploader("Video", type=["mp4", "mov"], key="v1")
     with col2: s1_file = st.file_uploader("SRT", type=["srt"], key="s1")
 
+    # Simple Subtitle Logic
     def generate_subtitle_clips(subtitle_path, video_width, video_height, font_path):
         subs = pysubs2.load(subtitle_path, encoding="utf-8")
         subtitle_clips = []
@@ -110,7 +100,8 @@ with tab2:
             vp, sp, fp, op = "temp_v1.mp4", "temp_s1.srt", "myanmar_font.ttf", "output_sub.mp4"
             with open(vp, "wb") as f: f.write(v1_file.getbuffer())
             with open(sp, "wb") as f: f.write(s1_file.getbuffer())
-            if not os.path.exists(fp): st.error("Font Missing!")
+            
+            if not os.path.exists(fp): st.error("Font Missing! (myanmar_font.ttf)")
             else:
                 try:
                     video = VideoFileClip(vp)
@@ -121,24 +112,46 @@ with tab2:
                     st.success("Success!")
                     with open(op, "rb") as f: st.download_button("Download Video", f.read(), "subbed.mp4", "video/mp4")
                 except Exception as e: st.error(f"Error: {e}")
+            
             if os.path.exists(vp): os.remove(vp)
             if os.path.exists(sp): os.remove(sp)
             if os.path.exists(op): os.remove(op)
 
 # ==========================================
-# TAB 3: PRO VERSION (FFMPEG DIRECT ENGINE)
+# TAB 3: GOOGLE AI STUDIO LINK (MANUAL AUDIO)
 # ==========================================
 with tab3:
-    st.header("Tab 3: Video အသံထည့်ခြင်း (Pro - Turbo Engine)")
+    st.header("Tab 3: အသံဖိုင်ထုတ်လုပ်ရန် (Audio Generation)")
+    st.info("အောက်ပါခလုတ်ကို နှိပ်ပြီး Google AI Studio တွင် စာရိုက်ထည့်ကာ အသံဖိုင်ဒေါင်းယူပါ။")
+    
+    # Direct Link to Google AI Studio
+    # AI Studio တွင် Text to Speech နေရာသို့ တန်းရောက်မည့် Link
+    st.link_button("🚀 Go to Google AI Studio (Speech Tool)", "https://aistudio.google.com/")
+    
+    st.markdown("""
+    **လုပ်ဆောင်ရမည့်အဆင့်များ:**
+    1. အပေါ်က ခလုတ်ကို နှိပ်ပါ။
+    2. Google AI Studio တွင် **"Speech"** သို့မဟုတ် **"Generate Audio"** ကိုရွေးပါ။
+    3. SRT ထဲမှ စာများကို Copy ကူးထည့်ပါ။
+    4. Voice နေရာတွင် **Zephyr** သို့မဟုတ် **Charon** (ကြိုက်နှစ်သက်ရာ) ကိုရွေးပါ။
+    5. **Download** လုပ်ပြီး ရလာတဲ့ အသံဖိုင်ကို **Tab 4** တွင် သုံးပါ။
+    """)
+
+# ==========================================
+# TAB 4: MANUAL MERGE (VIDEO + AUDIO)
+# ==========================================
+with tab4:
+    st.header("Tab 4: Video နှင့် အသံဖိုင် ပေါင်းစပ်ခြင်း (Final Step)")
     
     if "user_info" not in st.session_state: st.session_state.user_info = None
     
-    # Login Logic
+    # --- LOGIN SYSTEM ---
     if st.session_state.user_info is None:
-        st.warning("🔒 Feature Locked.")
+        st.warning("🔒 Pro Feature Locked.")
         col_pass1, _ = st.columns([3, 1])
-        with col_pass1: token_input = st.text_input("Pro Access Token:", type="password", key="pro_token")
-        if st.button("Login"):
+        with col_pass1: token_input = st.text_input("Pro Access Token:", type="password", key="pro_token_t4")
+        
+        if st.button("Login to Pro Mode", key="btn_login_t4"):
             if "users" in st.secrets and token_input in st.secrets["users"]:
                 current_ip = get_remote_ip()
                 if token_input == "nmh-123": 
@@ -157,120 +170,63 @@ with tab3:
         st.stop()
 
     st.success(f"✅ Welcome {st.session_state.user_info}")
-    if "Admin" in st.session_state.user_info:
-        if st.button("Reset Locks"):
-            usage_data["bindings"] = {}
-            st.success("Reset Done!")
-    if st.button("Logout"):
+    if st.button("Logout", key="out_t4"):
         st.session_state.user_info = None
         st.rerun()
     st.write("---")
-    
-    col3, col4 = st.columns(2)
-    with col3: v2_file = st.file_uploader("Video (Dub)", type=["mp4", "mov"], key="v2")
-    with col4: s2_file = st.file_uploader("SRT (Dub)", type=["srt"], key="s2")
-    
-    # Speed Control
-    speed_option = st.select_slider("စကားပြောနှုန်း ရွေးချယ်ပါ (Voice Speed)", 
-                                    options=["Normal (1.0x)", "Fast (1.25x)", "Super Fast (1.5x)"], 
-                                    value="Fast (1.25x)")
-    
-    keep_original = st.checkbox("Keep Original Audio (Background)", value=True)
 
-    # --- DIRECT FFMPEG ENGINE (NO PYDUB) ---
-    def generate_turbo_voice_ffmpeg(text, output_file, speed_mode):
-        try:
-            # 1. Google Voice ထုတ်မည် (Normal Speed)
-            temp_slow = "temp_slow_raw.mp3"
-            tts = gTTS(text=text, lang='my')
-            tts.save(temp_slow)
-            
-            # 2. FFmpeg ဖြင့် တိုက်ရိုက် Speed တင်မည်
-            atempo = "1.0"
-            if speed_mode == "Fast (1.25x)": atempo = "1.25"
-            elif speed_mode == "Super Fast (1.5x)": atempo = "1.5"
-            
-            # Command: ffmpeg -i input.mp3 -filter:a "atempo=1.25" output.mp3 -y
-            cmd = [
-                "ffmpeg", "-i", temp_slow, 
-                "-filter:a", f"atempo={atempo}", 
-                "-vn", output_file, "-y"
-            ]
-            
-            subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-            
-            if os.path.exists(temp_slow): os.remove(temp_slow)
-            return True
-        except Exception as e:
-            print(f"FFmpeg Error: {e}")
-            return False
+    col_v, col_a = st.columns(2)
+    with col_v:
+        video_input = st.file_uploader("၁။ Video ဖိုင် ရွေးပါ", type=["mp4", "mov", "avi"], key="vid_merge")
+    with col_a:
+        audio_input = st.file_uploader("၂။ အသံဖိုင် (Tab 3 မှ ဒေါင်းလာသောဖိုင်)", type=["mp3", "wav", "m4a"], key="aud_merge")
 
-    if v2_file and s2_file and st.button("Start Dubbing (Turbo)", key="btn_pro"):
-        with st.spinner("အသံသွင်းနေပါသည် (Stable Engine Mode)..."):
-            vp2, sp2, op2 = "temp_v2.mp4", "temp_s2.srt", "output_dub.mp4"
-            with open(vp2, "wb") as f: f.write(v2_file.getbuffer())
-            with open(sp2, "wb") as f: f.write(s2_file.getbuffer())
-            
+    keep_original_bg = st.checkbox("မူရင်း Video အသံကို မဖျက်ဘဲထားမည် (Background အသံအဖြစ်)", value=True, key="bg_check_t4")
+
+    if video_input and audio_input and st.button("Video နှင့် အသံ ပေါင်းမည် (Merge)", key="btn_merge"):
+        with st.spinner("Processing..."):
+            t4_vid = "temp_merge_v.mp4"
+            t4_aud = "temp_merge_a.mp3"
+            t4_out = "output_merged.mp4"
+
+            with open(t4_vid, "wb") as f: f.write(video_input.getbuffer())
+            with open(t4_aud, "wb") as f: f.write(audio_input.getbuffer())
+
             try:
-                video = VideoFileClip(vp2)
-                subs = pysubs2.load(sp2, encoding="utf-8")
+                video_clip = VideoFileClip(t4_vid)
+                new_audio_clip = AudioFileClip(t4_aud)
                 
-                audio_clips = []
-                if keep_original and video.audio is not None:
-                    bg_audio = video.audio.volumex(0.1)
-                    audio_clips.append(bg_audio)
-                
-                generated_files = []
-                progress_bar = st.progress(0)
-                total_lines = len(subs)
-                success_count = 0
+                # အသံဖိုင် Duration ကို Video နဲ့ ညီအောင်ညှိခြင်း
+                if new_audio_clip.duration > video_clip.duration:
+                    new_audio_clip = new_audio_clip.subclip(0, video_clip.duration)
 
-                for i, line in enumerate(subs):
-                    if not line.text.strip(): continue
-                    
-                    text = line.text.replace("\\N", " ").replace('"', '')
-                    temp_audio = f"temp_aud_{i}.mp3"
-                    
-                    # Run FFmpeg Engine
-                    is_success = generate_turbo_voice_ffmpeg(text, temp_audio, speed_option)
-                    
-                    if is_success and os.path.exists(temp_audio):
-                        generated_files.append(temp_audio)
-                        try:
-                            audioclip = AudioFileClip(temp_audio)
-                            audioclip = audioclip.set_start(line.start / 1000)
-                            audio_clips.append(audioclip)
-                            success_count += 1
-                        except: pass
-                    
-                    progress_bar.progress((i + 1) / total_lines)
-            
-                if success_count > 0:
-                    final_audio = CompositeAudioClip(audio_clips)
-                    
-                    if final_audio.duration > video.duration:
-                        final_audio = final_audio.subclip(0, video.duration)
-                    else:
-                        final_audio = final_audio.set_duration(video.duration)
-                        
-                    final_video = video.set_audio(final_audio)
-                    
-                    final_video.write_videofile(
-                        op2, fps=24, codec='libx264', preset='fast', 
-                        audio_codec='aac', threads=4, ffmpeg_params=["-crf", "23"]
-                    )
-                    
-                    st.success(f"Success! (Created {success_count} lines)")
-                    with open(op2, "rb") as f: st.download_button("Download Dubbed Video", f.read(), "dubbed_turbo_stable.mp4", "video/mp4")
+                final_audio = None
+                if keep_original_bg and video_clip.audio is not None:
+                    # မူရင်းအသံကို ၁၀% လျှော့
+                    bg_audio = video_clip.audio.volumex(0.1)
+                    final_audio = CompositeAudioClip([bg_audio, new_audio_clip])
                 else:
-                    st.error("Error: အသံဖိုင် ထုတ်မရပါ။ packages.txt တွင် ffmpeg ရှိမရှိ စစ်ဆေးပါ။")
+                    final_audio = new_audio_clip
 
-                for f in generated_files: 
-                    if os.path.exists(f): os.remove(f)
+                final_video = video_clip.set_audio(final_audio)
+                
+                final_video.write_videofile(
+                    t4_out, 
+                    fps=24, 
+                    codec='libx264', 
+                    preset='fast', 
+                    audio_codec='aac', 
+                    threads=4, 
+                    ffmpeg_params=["-crf", "23"]
+                )
 
-            except Exception as e: st.error(f"System Error: {e}")
+                st.success("✅ အောင်မြင်ပါသည်!")
+                with open(t4_out, "rb") as f:
+                    st.download_button("Download Final Video", f.read(), "merged_video.mp4", "video/mp4")
+
+            except Exception as e: st.error(f"Error: {e}")
             
-            if os.path.exists(vp2): os.remove(vp2)
-            if os.path.exists(sp2): os.remove(sp2)
-            if os.path.exists(op2): os.remove(op2)
-            
+            if os.path.exists(t4_vid): os.remove(t4_vid)
+            if os.path.exists(t4_aud): os.remove(t4_aud)
+            if os.path.exists(t4_out): os.remove(t4_out)
+
