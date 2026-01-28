@@ -45,7 +45,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
 ])
 
 # ==========================================
-# TAB 1: GEMINI SRT (TEXT ONLY)
+# TAB 1: GEMINI SRT
 # ==========================================
 with tab1:
     st.header("အဆင့် ၁ - Gemini မှ SRT စာသားတောင်းယူပါ")
@@ -117,36 +117,30 @@ with tab2:
             if os.path.exists(op): os.remove(op)
 
 # ==========================================
-# TAB 3: GOOGLE AI STUDIO LINK (MANUAL AUDIO)
+# TAB 3: GOOGLE AI STUDIO LINK
 # ==========================================
 with tab3:
     st.header("Tab 3: အသံဖိုင်ထုတ်လုပ်ရန် (Audio Generation)")
     st.info("အောက်ပါခလုတ်ကို နှိပ်ပြီး Google AI Studio တွင် စာရိုက်ထည့်ကာ အသံဖိုင်ဒေါင်းယူပါ။")
     
-    # Direct Link
     st.link_button("🚀 Go to Google AI Studio (Speech Tool)", "https://aistudio.google.com/")
-    
-    # 🔥 အထူးသတိပေးချက် (ညီကိုလိုချင်တဲ့အပိုင်း)
-    st.error("⚠️ သတိပြုရန်: Google AI Studio ရောက်လျှင် 'Single speaker audio' ကို မဖြစ်မနေ ရွေးပေးပါ။")
     
     st.markdown("""
     **လုပ်ဆောင်ရမည့်အဆင့်များ:**
     1. အပေါ်က ခလုတ်ကို နှိပ်ပါ။
-    2. **"Turn text into audio with Gemini"** ကို ရှာပြီး နှိပ်ပါ။
-    3. 👉 **"Single speaker audio"** ဆိုတဲ့ Tab ကို ရွေးပါ။ (လူတစ်ယောက်တည်း ပြောသောပုံစံ)
-    4. SRT ထဲမှ စာများကို Copy ကူးထည့်ပါ။ Voice နေရာတွင် **Zephyr/Charon** ကိုရွေးပါ။
-    5. **Download** လုပ်ပြီး **Tab 4** တွင် ပြန်လာထည့်ပါ။
+    2. Google AI Studio တွင် **"Speech"** သို့မဟုတ် **"Generate Audio"** ကိုရွေးပါ။
+    3. Voice နေရာတွင် **Zephyr** သို့မဟုတ် **Charon** ကိုရွေးပါ။
+    4. **Download** လုပ်ပါ။ (ရလာသောဖိုင်သည် .wav သို့မဟုတ် .mp3 ဖြစ်ပါလိမ့်မည်)
     """)
 
 # ==========================================
-# TAB 4: MANUAL MERGE (VIDEO + AUDIO)
+# TAB 4: MANUAL MERGE (WAV SUPPORT ADDED)
 # ==========================================
 with tab4:
-    st.header("Tab 4: Video နှင့် အသံဖိုင် ပေါင်းစပ်ခြင်း (Final Step)")
+    st.header("Tab 4: Video နှင့် အသံဖိုင် ပေါင်းစပ်ခြင်း")
     
     if "user_info" not in st.session_state: st.session_state.user_info = None
     
-    # --- LOGIN SYSTEM ---
     if st.session_state.user_info is None:
         st.warning("🔒 Pro Feature Locked.")
         col_pass1, _ = st.columns([3, 1])
@@ -180,14 +174,18 @@ with tab4:
     with col_v:
         video_input = st.file_uploader("၁။ Video ဖိုင် ရွေးပါ", type=["mp4", "mov", "avi"], key="vid_merge")
     with col_a:
-        audio_input = st.file_uploader("၂။ အသံဖိုင် (Tab 3 မှ ဒေါင်းလာသောဖိုင်)", type=["mp3", "wav", "m4a"], key="aud_merge")
+        # 🔥 FIX: WAV ဖိုင်ပါ လက်ခံအောင် ပြင်လိုက်ပါပြီ
+        audio_input = st.file_uploader("၂။ အသံဖိုင် ရွေးပါ (MP3, WAV, M4A)", type=["mp3", "wav", "m4a"], key="aud_merge")
 
     keep_original_bg = st.checkbox("မူရင်း Video အသံကို မဖျက်ဘဲထားမည် (Background အသံအဖြစ်)", value=True, key="bg_check_t4")
 
     if video_input and audio_input and st.button("Video နှင့် အသံ ပေါင်းမည် (Merge)", key="btn_merge"):
         with st.spinner("Processing..."):
+            # ဖိုင်နာမည် မှန်ကန်အောင် Extension ခွဲထုတ်ခြင်း
+            audio_ext = audio_input.name.split(".")[-1]
+            
             t4_vid = "temp_merge_v.mp4"
-            t4_aud = "temp_merge_a.mp3"
+            t4_aud = f"temp_merge_a.{audio_ext}" # WAV ဖြစ်နေလဲ လက်ခံမယ်
             t4_out = "output_merged.mp4"
 
             with open(t4_vid, "wb") as f: f.write(video_input.getbuffer())
@@ -228,4 +226,4 @@ with tab4:
             if os.path.exists(t4_vid): os.remove(t4_vid)
             if os.path.exists(t4_aud): os.remove(t4_aud)
             if os.path.exists(t4_out): os.remove(t4_out)
-        
+                
