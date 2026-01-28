@@ -1,91 +1,113 @@
 import streamlit as st
-import ffmpeg
 import os
-import shutil
-from pathlib import Path
+import pysubs2
+import numpy as np
+from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip
+from PIL import Image, ImageDraw, ImageFont
 
-st.set_page_config(page_title="NMH Hardsubber", layout="wide")
-st.title("🎬 NMH Video Hardsub Tool (System Font Fix)")
-st.write("Video နှင့် မြန်မာ SRT ဖိုင်ကို တင်ပြီး စာတန်းမြှုပ် Video ထုတ်ယူပါ။")
+st.set_page_config(page_title="NMH Subtitle Fixer", layout="wide")
+st.title("🎬 NMH Pro Video Subtitler (Myanmar Layout Fix)")
+st.write("စာလုံးကွဲပြဿနာကို ဖြေရှင်းထားသော စနစ်သစ်")
 
-# --- UI Uploads ---
+# --- UI ---
 col1, col2 = st.columns(2)
 with col1:
-    video_file = st.file_uploader("၁။ Video ဖိုင် တင်ပါ", type=["mp4", "mov", "avi"])
+    video_file = st.file_uploader("Video ဖိုင်", type=["mp4", "mov", "avi"])
 with col2:
-    srt_file = st.file_uploader("၂။ Myanmar SRT ဖိုင် တင်ပါ", type=["srt"])
+    srt_file = st.file_uploader("SRT ဖိုင်", type=["srt"])
+
+def generate_subtitle_clips(subtitle_path, video_width, video_height, font_path):
+    subs = pysubs2.load(subtitle_path, encoding="utf-8")
+    subtitle_clips = []
+    
+    # Font Size ကို Video အရွယ်အစားပေါ်မူတည်ပြီး ချိန်ညှိခြင်း
+    fontsize = int(video_width / 20)  
+    try:
+        font = ImageFont.truetype(font_path, fontsize)
+    except:
+        st.error("Font file loading failed. Using default.")
+        font = ImageFont.load_default()
+
+    for line in subs:
+        # စာသားမရှိရင် ကျော်သွားမယ်
+        if not line.text.strip():
+            continue
+
+        # 1. စာသားအတွက် ပုံရိပ် (Image) တစ်ခု ဖန်တီးမယ် (Transparent Background)
+        # စာသားအရှည်ပေါ်မူတည်ပြီး ပုံအရွယ်အစား ခန့်မှန်းမယ်
+        text_w = int(video_width * 0.9)
+        text_h = int(video_height * 0.2)
+        
+        # PIL Image ဖန်တီးခြင်း
+        img = Image.new('RGBA', (text_w, text_h), (255, 255, 255, 0))
+        draw = ImageDraw.Draw(img)
+        
+        # စာသား ရေးဆွဲခြင်း (Outline ပါထည့်ပေးမယ် ထင်းအောင်လို့)
+        text_content = line.text.replace("\\N", "\n") # Line break တွေကို ပြင်မယ်
+        
+        # စာသားအလယ်တည့်တည့်ကျအောင် တွက်ချက်ခြင်း (Simple calculation)
+        # PIL မှာ textbbox က အတိအကျရပေမယ့် version ပေါ်မူတည်လို့ anchor='mm' သုံးပါမယ်
+        try:
+            draw.text((text_w/2, text_h/2), text_content, font=font, fill="white", stroke_width=3, stroke_fill="black", anchor="mm", align="center")
+        except:
+            # Anchor မရတဲ့ PIL version အဟောင်းတွေအတွက်
+            draw.text((10, 10), text_content, font=font, fill="white", stroke_width=2, stroke_fill="black")
+
+        # 2. MoviePy ImageClip အဖြစ် ပြောင်းလဲခြင်း
+        # np.array သုံးပြီး PIL image ကို MoviePy နားလည်အောင် ပြောင်းမယ်
+        clip = ImageClip(np.array(img)).set_start(line.start / 1000).set_duration((line.end - line.start) / 1000)
+        
+        # 3. နေရာချခြင်း (အောက်ခြေနား)
+        clip = clip.set_position(('center', 0.85), relative=True)
+        subtitle_clips.append(clip)
+        
+    return subtitle_clips
 
 # --- Processing ---
 if video_file and srt_file:
-    st.write("---")
-    if st.button("Start Burning (စာတန်းမြှုပ်မည်)"):
-        with st.spinner("Font များကို System ထဲသို့ ထည့်သွင်းနေပါသည်..."):
+    if st.button("Start Burning (စာတန်းကပ်မည်)"):
+        with st.spinner("Video ကို Frame တစ်ခုချင်းစီ စီစစ်ပြီး စာတန်းကပ်နေပါသည် (အချိန်အနည်းငယ် ကြာနိုင်ပါသည်)..."):
             
-            # --- Step 1: Font Installation (အဓိက ပြင်ဆင်ချက်) ---
-            # GitHub ပေါ်က myanmar_font.ttf ကို ယူပါမယ်
-            font_source = "myanmar_font.ttf"
+            # Save Temp Files
+            v_path = "temp_video.mp4"
+            s_path = "temp.srt"
+            f_path = "myanmar_font.ttf"
+            out_path = "final_output.mp4"
             
-            # Linux System ရဲ့ Font သိမ်းတဲ့ နေရာကို ရှာပြီး ဖိုင်ကူးထည့်ပါမယ်
-            # ဒီလိုလုပ်လိုက်ရင် FFmpeg က "Padauk" လို့ ခေါ်လိုက်တာနဲ့ တန်းသိသွားပါလိမ့်မယ်
-            user_font_dir = Path.home() / ".fonts"
-            user_font_dir.mkdir(exist_ok=True)
+            with open(v_path, "wb") as f: f.write(video_file.getbuffer())
+            with open(s_path, "wb") as f: f.write(srt_file.getbuffer())
             
-            if os.path.exists(font_source):
-                # System ထဲရောက်ရင် နာမည်ရင်းအတိုင်း ပြန်ထားလိုက်ပါမယ်
-                destination = user_font_dir / "Padauk.ttf"
-                shutil.copy(font_source, destination)
-                
-                # Font Cache ကို Update လုပ်ခြင်း (ကွန်ပျူတာကို Font အသစ်ရောက်ကြောင်း ပြောခြင်း)
-                os.system("fc-cache -fv")
-            else:
-                st.error("⚠️ 'myanmar_font.ttf' ကို GitHub မှာ မတွေ့ပါ။")
+            # Font Check
+            if not os.path.exists(f_path):
+                st.error("GitHub တွင် 'myanmar_font.ttf' မရှိပါ။ Font ဖိုင် အရင်တင်ပါ။")
                 st.stop()
-
-            # --- Step 2: File Processing ---
-            input_video = "input_video.mp4"
-            input_srt = "input_subs.srt"
-            output_video = "output_hardsub.mp4"
-            
-            with open(input_video, "wb") as f:
-                f.write(video_file.getbuffer())
-            with open(input_srt, "wb") as f:
-                f.write(srt_file.getbuffer())
                 
             try:
-                with st.spinner("Video ထုတ်လုပ်နေပါသည် (ခဏစောင့်ပါ)..."):
-                    # --- Step 3: FFmpeg Burning ---
-                    stream = ffmpeg.input(input_video)
-                    
-                    video = ffmpeg.output(
-                        stream, 
-                        output_video, 
-                        # FontName=Padauk လို့ ခေါ်လိုက်တာနဲ့ ခုနက ထည့်ထားတဲ့ Font ကို ယူသုံးပါလိမ့်မယ်
-                        vf=f"subtitles={input_srt}:force_style='FontName=Padauk,FontSize=24,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=1,Shadow=0'"
-                    )
-                    
-                    ffmpeg.run(video, overwrite_output=True)
-                    
-                    st.success("အောင်မြင်ပါသည်! မြန်မာစာ အမှန်အတိုင်း ပေါ်ပါပြီ။")
-                    
-                    with open(output_video, "rb") as f:
-                        st.download_button(
-                            label="Download Final Video",
-                            data=f.read(),
-                            file_name="myanmar_hardsub_video.mp4",
-                            mime="video/mp4"
-                        )
-                        
-                    st.video(output_video)
+                # Video Load
+                video = VideoFileClip(v_path)
                 
-            except ffmpeg.Error as e:
-                st.error("Video ပြုလုပ်ရာတွင် Error ဖြစ်သွားပါသည်။")
-                try:
-                    st.error(e.stderr.decode('utf8'))
-                except:
-                    pass
+                # Subtitles Generate
+                st.info("စာတန်းများကို ပုံဖော်နေပါသည်...")
+                sub_clips = generate_subtitle_clips(s_path, video.w, video.h, f_path)
+                
+                # Combine
+                st.info("Video နှင့် ပေါင်းစပ်နေပါသည်...")
+                final_video = CompositeVideoClip([video] + sub_clips)
+                
+                # Write File
+                # fps=24 သို့မဟုတ် video.fps (မြန်အောင် preset='ultrafast' သုံးထားသည်)
+                final_video.write_videofile(out_path, fps=video.fps or 24, codec='libx264', preset='ultrafast', audio_codec='aac')
+                
+                st.success("အောင်မြင်ပါသည်!")
+                
+                with open(out_path, "rb") as f:
+                    st.download_button("Download Video", f.read(), "mm_sub_fixed.mp4", "video/mp4")
+                    
+            except Exception as e:
+                st.error(f"Error: {e}")
             
             # Cleanup
-            if os.path.exists(input_video): os.remove(input_video)
-            if os.path.exists(input_srt): os.remove(input_srt)
-            if os.path.exists(output_video): os.remove(output_video)
-                
+            if os.path.exists(v_path): os.remove(v_path)
+            if os.path.exists(s_path): os.remove(s_path)
+            if os.path.exists(out_path): os.remove(out_path)
+
