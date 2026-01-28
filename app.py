@@ -36,7 +36,7 @@ def get_remote_ip():
 st.title("✨ NMH Pro Creator Mood")
 st.success("📢 Manual Workflow: Error Free & High Quality Audio")
 
-# TAB 4 ခု (ညီကိုလိုချင်တဲ့ ပုံစံအတိုင်း)
+# TAB 4 ခု
 tab1, tab2, tab3, tab4 = st.tabs([
     "Tab 1: 🌐 Get SRT", 
     "Tab 2: 📝 Burn Sub (Free)", 
@@ -75,7 +75,6 @@ with tab2:
     with col1: v1_file = st.file_uploader("Video", type=["mp4", "mov"], key="v1")
     with col2: s1_file = st.file_uploader("SRT", type=["srt"], key="s1")
 
-    # Simple Subtitle Logic
     def generate_subtitle_clips(subtitle_path, video_width, video_height, font_path):
         subs = pysubs2.load(subtitle_path, encoding="utf-8")
         subtitle_clips = []
@@ -124,17 +123,19 @@ with tab3:
     st.header("Tab 3: အသံဖိုင်ထုတ်လုပ်ရန် (Audio Generation)")
     st.info("အောက်ပါခလုတ်ကို နှိပ်ပြီး Google AI Studio တွင် စာရိုက်ထည့်ကာ အသံဖိုင်ဒေါင်းယူပါ။")
     
-    # Direct Link to Google AI Studio
-    # AI Studio တွင် Text to Speech နေရာသို့ တန်းရောက်မည့် Link
+    # Direct Link
     st.link_button("🚀 Go to Google AI Studio (Speech Tool)", "https://aistudio.google.com/")
+    
+    # 🔥 အထူးသတိပေးချက် (ညီကိုလိုချင်တဲ့အပိုင်း)
+    st.error("⚠️ သတိပြုရန်: Google AI Studio ရောက်လျှင် 'Single speaker audio' ကို မဖြစ်မနေ ရွေးပေးပါ။")
     
     st.markdown("""
     **လုပ်ဆောင်ရမည့်အဆင့်များ:**
     1. အပေါ်က ခလုတ်ကို နှိပ်ပါ။
-    2. Google AI Studio တွင် **"Speech"** သို့မဟုတ် **"Generate Audio"** ကိုရွေးပါ။
-    3. SRT ထဲမှ စာများကို Copy ကူးထည့်ပါ။
-    4. Voice နေရာတွင် **Zephyr** သို့မဟုတ် **Charon** (ကြိုက်နှစ်သက်ရာ) ကိုရွေးပါ။
-    5. **Download** လုပ်ပြီး ရလာတဲ့ အသံဖိုင်ကို **Tab 4** တွင် သုံးပါ။
+    2. **"Turn text into audio with Gemini"** ကို ရှာပြီး နှိပ်ပါ။
+    3. 👉 **"Single speaker audio"** ဆိုတဲ့ Tab ကို ရွေးပါ။ (လူတစ်ယောက်တည်း ပြောသောပုံစံ)
+    4. SRT ထဲမှ စာများကို Copy ကူးထည့်ပါ။ Voice နေရာတွင် **Zephyr/Charon** ကိုရွေးပါ။
+    5. **Download** လုပ်ပြီး **Tab 4** တွင် ပြန်လာထည့်ပါ။
     """)
 
 # ==========================================
@@ -196,13 +197,11 @@ with tab4:
                 video_clip = VideoFileClip(t4_vid)
                 new_audio_clip = AudioFileClip(t4_aud)
                 
-                # အသံဖိုင် Duration ကို Video နဲ့ ညီအောင်ညှိခြင်း
                 if new_audio_clip.duration > video_clip.duration:
                     new_audio_clip = new_audio_clip.subclip(0, video_clip.duration)
 
                 final_audio = None
                 if keep_original_bg and video_clip.audio is not None:
-                    # မူရင်းအသံကို ၁၀% လျှော့
                     bg_audio = video_clip.audio.volumex(0.1)
                     final_audio = CompositeAudioClip([bg_audio, new_audio_clip])
                 else:
@@ -229,4 +228,4 @@ with tab4:
             if os.path.exists(t4_vid): os.remove(t4_vid)
             if os.path.exists(t4_aud): os.remove(t4_aud)
             if os.path.exists(t4_out): os.remove(t4_out)
-                
+        
