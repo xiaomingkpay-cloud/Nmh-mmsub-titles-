@@ -4,8 +4,6 @@ import pysubs2
 import numpy as np
 import asyncio
 import edge_tts
-import google.generativeai as genai
-import time
 from datetime import datetime
 from streamlit.web.server.websocket_headers import _get_websocket_headers
 from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip, AudioFileClip, CompositeAudioClip
@@ -13,13 +11,6 @@ from PIL import Image, ImageDraw, ImageFont
 
 # Website ခေါင်းစဉ်
 st.set_page_config(page_title="NMH Pro Creator Mood", layout="wide")
-
-# ==========================================
-# 🔑 GEMINI API SETUP
-# ==========================================
-# ညီကိုပေးသော API Key ကို ထည့်သွင်းထားသည်
-GEMINI_API_KEY = "AIzaSyC4OgI6aCHEnP51BuzGr5T3ug8buR4wlsQ"
-genai.configure(api_key=GEMINI_API_KEY)
 
 # ==========================================
 # 🛡️ SECURITY & TRACKER
@@ -52,74 +43,41 @@ st.markdown("""
 st.success("📢 Facebook / TikTok / VPN / Follower နှင့် တခြား Premium Service များလဲ ရသည်!")
 
 # TAB 3 ခု
-tab1, tab2, tab3 = st.tabs(["Tab 1: 🤖 Auto SRT (AI)", "Tab 2: 📝 စာတန်းမြှုပ် (Free)", "Tab 3: 🗣️ အသံထည့် (Pro)"])
+tab1, tab2, tab3 = st.tabs(["Tab 1: 🌐 Get SRT (Gemini)", "Tab 2: 📝 စာတန်းမြှုပ် (Free)", "Tab 3: 🗣️ အသံထည့် (Pro)"])
 
 # ==========================================
-# TAB 1: AUTO SUBTITLE GENERATOR (GEMINI)
+# TAB 1: GEMINI LINK & TEXT TO SRT CONVERTER
 # ==========================================
 with tab1:
-    st.header("🤖 AI ဖြင့် မြန်မာစာတန်း (SRT) အလိုအလျောက်ထုတ်ယူခြင်း")
-    st.info("Video တင်လိုက်ပါ၊ AI က စကားပြောများကို နားထောင်ပြီး SRT ဖိုင် ထုတ်ပေးပါမည်။")
-
-    gen_video = st.file_uploader("Video ဖိုင်တင်ပါ (To Generate SRT)", type=["mp4", "mov", "avi"], key="gen_v")
-
-    if gen_video and st.button("Generate Myanmar SRT Now 🚀"):
-        with st.spinner("AI သို့ Video ပို့ဆောင်နေပါသည် (ခဏစောင့်ပါ)..."):
-            # Save Temp Video
-            temp_gen_path = "temp_gen.mp4"
-            with open(temp_gen_path, "wb") as f: f.write(gen_video.getbuffer())
-
-            try:
-                # 1. Upload to Gemini
-                video_file = genai.upload_file(path=temp_gen_path)
-                
-                # 2. Wait for processing
-                while video_file.state.name == "PROCESSING":
-                    time.sleep(2)
-                    video_file = genai.get_file(video_file.name)
-
-                if video_file.state.name == "FAILED":
-                    st.error("AI မှ Video ကို ဖတ်မရပါ။ Video ဖိုင် ပျက်နေနိုင်ပါသည်။")
-                else:
-                    # 3. Generate Content
-                    st.info("AI မှ Video ကို နားထောင်ပြီး စာရေးနေပါသည်...")
-                    model = genai.GenerativeModel(model_name="gemini-1.5-flash")
-                    
-                    prompt = """
-                    Listen to the video carefully. Generate a subtitle file in SRT format for the Burmese (Myanmar) speech.
-                    Ensure the timestamps are accurate.
-                    Do not include any intro or outro text.
-                    Output ONLY the SRT content.
-                    """
-                    
-                    response = model.generate_content([video_file, prompt], request_options={"timeout": 600})
-                    srt_content = response.text
-
-                    # 4. Save & Download
-                    output_srt = "generated_subtitle.srt"
-                    # Clean up ```srt markdown if exists
-                    srt_content = srt_content.replace("```srt", "").replace("```", "").strip()
-                    
-                    with open(output_srt, "w", encoding="utf-8") as f:
-                        f.write(srt_content)
-                    
-                    st.success("✅ SRT ဖိုင် ရရှိပါပြီ! အောက်တွင် Download လုပ်ပါ။")
-                    with open(output_srt, "rb") as f:
-                        st.download_button("Download SRT File", f.read(), "myanmar.srt", "text/plain")
-                        
-                    # Cleanup Cloud File
-                    genai.delete_file(video_file.name)
-
-            except Exception as e:
-                st.error(f"Error: {e}")
+    st.header("အဆင့် ၁ - Gemini မှ SRT စာသားတောင်းယူပါ")
+    st.info("အောက်ပါခလုတ်ကို နှိပ်ပြီး Gemini တွင် Video တင်ပါ။ 'Generate Myanmar SRT file' ဟု ရေးပြီး တောင်းပါ။")
+    
+    # 1. Gemini Link Button
+    st.link_button("🚀 Go to Google Gemini App/Web", "https://gemini.google.com/")
+    
+    st.write("---")
+    st.header("အဆင့် ၂ - ရလာသော စာသားကို SRT ဖိုင်ပြောင်းပါ")
+    
+    # 2. Text Area for Copy-Paste
+    srt_text_input = st.text_area("Gemini မှပေးလိုက်သော SRT စာသားများကို ဒီအကွက်ထဲ Paste ချပါ:", height=300)
+    
+    if srt_text_input and st.button("SRT ဖိုင်အဖြစ် ပြောင်းမည် (Convert Now)"):
+        # Clean the text (remove markdown code blocks if present)
+        clean_text = srt_text_input.replace("```srt", "").replace("```", "").strip()
+        
+        output_srt = "manual_converted.srt"
+        with open(output_srt, "w", encoding="utf-8") as f:
+            f.write(clean_text)
             
-            if os.path.exists(temp_gen_path): os.remove(temp_gen_path)
+        st.success("✅ SRT ဖိုင် ထုတ်လုပ်ပြီးပါပြီ! ဒေါင်းယူနိုင်ပါသည်")
+        with open(output_srt, "rb") as f:
+            st.download_button("Download SRT File", f.read(), "myanmar_converted.srt", "text/plain")
 
 # ==========================================
-# TAB 2: BURN SUBTITLE (FREE LIMIT)
+# TAB 2: BURN SUBTITLE (HIGH QUALITY)
 # ==========================================
 with tab2:
-    st.header("Tab 2: ရလာသော SRT ကို Video တွင် မြန်မာစာတန်းထိုးခြင်း")
+    st.header("Tab 2: ရလာသော SRT ကို Video တွင် အသေမြှုပ်ခြင်း")
     
     user_ip = get_remote_ip()
     if user_ip not in usage_data["users"]: usage_data["users"][user_ip] = 0
@@ -153,49 +111,60 @@ with tab2:
             subtitle_clips.append(clip)
         return subtitle_clips
 
-    if usage_left > 0 and v1_file and s1_file and st.button("မြန်မာစာတန်းထိုးမည် (Start Burning)", key="btn_free"):
-        with st.spinner("Processing..."):
+    if usage_left > 0 and v1_file and s1_file and st.button("စာတန်းမြှုပ်မည် (Start Burning)", key="btn_free"):
+        with st.spinner("စာတန်းထည့်နေပါသည် (High Quality Mode)..."):
             vp, sp, fp, op = "temp_v1.mp4", "temp_s1.srt", "myanmar_font.ttf", "output_sub.mp4"
             with open(vp, "wb") as f: f.write(v1_file.getbuffer())
             with open(sp, "wb") as f: f.write(s1_file.getbuffer())
             
-            if not os.path.exists(fp): st.error("GitHub တွင် 'myanmar_font.ttf' မရှိပါ။ Font ဖိုင်တင်ပေးပါ။")
+            if not os.path.exists(fp): st.error("Font Missing!")
             else:
                 try:
                     video = VideoFileClip(vp)
                     sub_clips = generate_subtitle_clips(sp, video.w, video.h, fp)
                     final_video = CompositeVideoClip([video] + sub_clips)
-                    final_video.write_videofile(op, fps=24, codec='libx264', preset='veryfast', audio_codec='aac', threads=4, ffmpeg_params=["-crf", "28"])
+                    
+                    # --- HIGH QUALITY SETTINGS ---
+                    # preset='fast' (Better compression than ultrafast)
+                    # crf=23 (Standard High Quality, not too big)
+                    final_video.write_videofile(
+                        op, 
+                        fps=24, 
+                        codec='libx264', 
+                        preset='fast', 
+                        audio_codec='aac', 
+                        threads=4, 
+                        ffmpeg_params=["-crf", "23"] 
+                    )
                     
                     usage_data["users"][user_ip] += 1
-                    st.success("Success!")
-                    with open(op, "rb") as f: st.download_button("Download Video", f.read(), "subbed_video.mp4", "video/mp4")
+                    st.success("Success! (Quality: Clear & Crisp)")
+                    with open(op, "rb") as f: st.download_button("Download Video", f.read(), "subbed_video_hd.mp4", "video/mp4")
                 except Exception as e: st.error(f"Error: {e}")
+            
             if os.path.exists(vp): os.remove(vp)
             if os.path.exists(sp): os.remove(sp)
             if os.path.exists(op): os.remove(op)
 
 # ==========================================
-# TAB 3: PRO VERSION (AI DUBBING)
+# TAB 3: PRO VERSION (AI DUBBING - HQ)
 # ==========================================
 with tab3:
-    st.header("Tab 3: Video မြန်မာစကား‌ပြောထည့်ခြင်း (Pro Member)")
+    st.header("Tab 3: Video အသံထည့်ခြင်း (Pro Member)")
     
     if "user_info" not in st.session_state: st.session_state.user_info = None
     
     if st.session_state.user_info is None:
-        st.warning("🔒 Feature Locked. (1 Code = 1 Device Only)")
+        st.warning("🔒 Feature Locked.")
         col_pass1, _ = st.columns([3, 1])
         with col_pass1: token_input = st.text_input("Pro Access Token:", type="password", key="pro_token")
         
         if st.button("Login"):
             if "users" in st.secrets and token_input in st.secrets["users"]:
                 current_ip = get_remote_ip()
-                # Admin Code (No Lock)
                 if token_input == "nmh-123": 
                     st.session_state.user_info = st.secrets["users"][token_input]
                     st.rerun()
-                # User Code (Device Lock)
                 else:
                     if token_input not in usage_data["bindings"]:
                         usage_data["bindings"][token_input] = current_ip
@@ -204,19 +173,15 @@ with tab3:
                     elif usage_data["bindings"][token_input] == current_ip:
                         st.session_state.user_info = st.secrets["users"][token_input]
                         st.rerun()
-                    else: st.error("⛔ This code is locked to another device!")
+                    else: st.error("⛔ Device Locked")
             else: st.error("Invalid Code")
         st.stop()
 
     st.success(f"✅ Welcome {st.session_state.user_info}")
-    
-    # Admin Panel
     if "Admin" in st.session_state.user_info:
-        with st.expander("🛠️ Admin Tools"):
-            if st.button("Reset All Device Locks"):
-                usage_data["bindings"] = {}
-                st.success("Locks Reset!")
-                st.rerun()
+        if st.button("Reset Locks"):
+            usage_data["bindings"] = {}
+            st.success("Reset Done!")
     
     if st.button("Logout"):
         st.session_state.user_info = None
@@ -236,7 +201,7 @@ with tab3:
         await communicate.save(output_file)
 
     if v2_file and s2_file and st.button("Start Dubbing", key="btn_pro"):
-        with st.spinner("Processing..."):
+        with st.spinner("Processing (High Quality)..."):
             vp2, sp2, op2 = "temp_v2.mp4", "temp_s2.srt", "output_dub.mp4"
             with open(vp2, "wb") as f: f.write(v2_file.getbuffer())
             with open(sp2, "wb") as f: f.write(s2_file.getbuffer())
@@ -261,12 +226,23 @@ with tab3:
                     progress_bar.progress((i+1)/len(subs))
             
                 final_video = video.set_audio(CompositeAudioClip(audio_clips))
-                final_video.write_videofile(op2, fps=24, codec='libx264', preset='veryfast', audio_codec='aac', threads=4, ffmpeg_params=["-crf", "28"])
+                
+                # --- HIGH QUALITY SETTINGS (PRO) ---
+                final_video.write_videofile(
+                    op2, 
+                    fps=24, 
+                    codec='libx264', 
+                    preset='fast', 
+                    audio_codec='aac', 
+                    threads=4, 
+                    ffmpeg_params=["-crf", "23"]
+                )
+                
                 st.success("Success!")
-                with open(op2, "rb") as f: st.download_button("Download Dubbed Video", f.read(), "dubbed.mp4", "video/mp4")
+                with open(op2, "rb") as f: st.download_button("Download Dubbed Video", f.read(), "dubbed_hd.mp4", "video/mp4")
                 for f in generated_files: os.remove(f)
             except Exception as e: st.error(f"Error: {e}")
             if os.path.exists(vp2): os.remove(vp2)
             if os.path.exists(sp2): os.remove(sp2)
             if os.path.exists(op2): os.remove(op2)
-                
+            
