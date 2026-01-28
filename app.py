@@ -1,9 +1,11 @@
 import streamlit as st
 import ffmpeg
 import os
+import shutil
+from pathlib import Path
 
 st.set_page_config(page_title="NMH Hardsubber", layout="wide")
-st.title("🎬 NMH Video Hardsub Tool (Fixed Font)")
+st.title("🎬 NMH Video Hardsub Tool (System Font Fix)")
 st.write("Video နှင့် မြန်မာ SRT ဖိုင်ကို တင်ပြီး စာတန်းမြှုပ် Video ထုတ်ယူပါ။")
 
 # --- UI Uploads ---
@@ -17,61 +19,70 @@ with col2:
 if video_file and srt_file:
     st.write("---")
     if st.button("Start Burning (စာတန်းမြှုပ်မည်)"):
-        with st.spinner("Video ထဲသို့ မြန်မာစာတန်းများ ထည့်သွင်းနေပါသည်..."):
+        with st.spinner("Font များကို System ထဲသို့ ထည့်သွင်းနေပါသည်..."):
             
+            # --- Step 1: Font Installation (အဓိက ပြင်ဆင်ချက်) ---
+            # GitHub ပေါ်က myanmar_font.ttf ကို ယူပါမယ်
+            font_source = "myanmar_font.ttf"
+            
+            # Linux System ရဲ့ Font သိမ်းတဲ့ နေရာကို ရှာပြီး ဖိုင်ကူးထည့်ပါမယ်
+            # ဒီလိုလုပ်လိုက်ရင် FFmpeg က "Padauk" လို့ ခေါ်လိုက်တာနဲ့ တန်းသိသွားပါလိမ့်မယ်
+            user_font_dir = Path.home() / ".fonts"
+            user_font_dir.mkdir(exist_ok=True)
+            
+            if os.path.exists(font_source):
+                # System ထဲရောက်ရင် နာမည်ရင်းအတိုင်း ပြန်ထားလိုက်ပါမယ်
+                destination = user_font_dir / "Padauk.ttf"
+                shutil.copy(font_source, destination)
+                
+                # Font Cache ကို Update လုပ်ခြင်း (ကွန်ပျူတာကို Font အသစ်ရောက်ကြောင်း ပြောခြင်း)
+                os.system("fc-cache -fv")
+            else:
+                st.error("⚠️ 'myanmar_font.ttf' ကို GitHub မှာ မတွေ့ပါ။")
+                st.stop()
+
+            # --- Step 2: File Processing ---
             input_video = "input_video.mp4"
             input_srt = "input_subs.srt"
             output_video = "output_hardsub.mp4"
             
-            # Font ဖိုင်နာမည် (GitHub မှာ တင်ထားတဲ့ နာမည်အတိုင်း ဖြစ်ရပါမယ်)
-            font_path = "myanmar_font.ttf" 
-            
-            # Font ဖိုင် တကယ်ရှိမရှိ စစ်ဆေးခြင်း
-            if not os.path.exists(font_path):
-                st.error(f"⚠️ '{font_path}' ဖိုင်ကို GitHub မှာ မတွေ့ပါ။ Font ဖိုင်တင်ပြီး နာမည်တူအောင် ပေးပါ။")
-                st.stop()
-
-            # ဖိုင်များ သိမ်းဆည်းခြင်း
             with open(input_video, "wb") as f:
                 f.write(video_file.getbuffer())
             with open(input_srt, "wb") as f:
                 f.write(srt_file.getbuffer())
                 
             try:
-                # FFmpeg ဖြင့် Font ဖိုင်ကို အသုံးပြုပြီး စာတန်းမြှုပ်ခြင်း
-                # fontsdir=. ဆိုတာ လက်ရှိ Folder ထဲက Font ကို ရှာခိုင်းတာပါ
-                # FontName=MyanmarFont ဆိုတာ လှမ်းခေါ်မည့် နာမည်ပါ (စိတ်ကြိုက်ပေးလို့ရသည်)
-                
-                stream = ffmpeg.input(input_video)
-                
-                # အရေးကြီးသော အပိုင်း - fontsdir နှင့် fontfile ကို ထည့်သွင်းခြင်း
-                video = ffmpeg.output(
-                    stream, 
-                    output_video, 
-                    # ဒီနေရာမှာ အပြောင်းအလဲ လုပ်ထားပါတယ်
-                    vf=f"subtitles={input_srt}:fontsdir=.:force_style='FontName=myanmar_font,FontSize=24'"
-                )
-                
-                ffmpeg.run(video, overwrite_output=True)
-                
-                st.success("အောင်မြင်ပါသည်! မြန်မာစာ မှန်ကန်စွာ ပေါ်ပါလိမ့်မည်။")
-                
-                with open(output_video, "rb") as f:
-                    st.download_button(
-                        label="Download Final Video",
-                        data=f.read(),
-                        file_name="myanmar_hardsub_video.mp4",
-                        mime="video/mp4"
+                with st.spinner("Video ထုတ်လုပ်နေပါသည် (ခဏစောင့်ပါ)..."):
+                    # --- Step 3: FFmpeg Burning ---
+                    stream = ffmpeg.input(input_video)
+                    
+                    video = ffmpeg.output(
+                        stream, 
+                        output_video, 
+                        # FontName=Padauk လို့ ခေါ်လိုက်တာနဲ့ ခုနက ထည့်ထားတဲ့ Font ကို ယူသုံးပါလိမ့်မယ်
+                        vf=f"subtitles={input_srt}:force_style='FontName=Padauk,FontSize=24,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=1,Shadow=0'"
                     )
                     
-                st.video(output_video)
+                    ffmpeg.run(video, overwrite_output=True)
+                    
+                    st.success("အောင်မြင်ပါသည်! မြန်မာစာ အမှန်အတိုင်း ပေါ်ပါပြီ။")
+                    
+                    with open(output_video, "rb") as f:
+                        st.download_button(
+                            label="Download Final Video",
+                            data=f.read(),
+                            file_name="myanmar_hardsub_video.mp4",
+                            mime="video/mp4"
+                        )
+                        
+                    st.video(output_video)
                 
             except ffmpeg.Error as e:
                 st.error("Video ပြုလုပ်ရာတွင် Error ဖြစ်သွားပါသည်။")
                 try:
                     st.error(e.stderr.decode('utf8'))
                 except:
-                    st.error("Unknown FFmpeg error")
+                    pass
             
             # Cleanup
             if os.path.exists(input_video): os.remove(input_video)
