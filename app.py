@@ -58,4 +58,3 @@ if uploaded_file is not None:
                     st.text(srt_output)
             except Exception as e:
                 st.error(f"Error: {e}")
-
