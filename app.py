@@ -66,6 +66,7 @@ with tab1:
     st.write("---")
     st.header("အဆင့် ၂ - ရလာသော စာသားကို SRT ဖိုင်ပြောင်းပါ")
     srt_text_input = st.text_area("Gemini မှပေးလိုက်သော SRT စာသားများကို ဒီအကွက်ထဲ Paste ချပါ:", height=300)
+    
     if srt_text_input and st.button("SRT ဖိုင်အဖြစ် ပြောင်းမည်"):
         clean_text = srt_text_input.replace("```srt", "").replace("```", "").strip()
         output_srt = "manual_converted.srt"
@@ -80,9 +81,11 @@ with tab2:
     usage_left = 3 - usage_data["users"][user_ip]
     if usage_left > 0: st.info(f"✅ Free Limit: {usage_left}/3 left")
     else: st.error("⛔ Limit Reached")
+
     col1, col2 = st.columns(2)
     with col1: v1_file = st.file_uploader("Video", type=["mp4", "mov"], key="v1")
     with col2: s1_file = st.file_uploader("SRT", type=["srt"], key="s1")
+
     def generate_subtitle_clips(subtitle_path, video_width, video_height, font_path):
         subs = pysubs2.load(subtitle_path, encoding="utf-8")
         subtitle_clips = []
@@ -101,6 +104,7 @@ with tab2:
             clip = clip.set_position(('center', 0.80), relative=True)
             subtitle_clips.append(clip)
         return subtitle_clips
+
     if usage_left > 0 and v1_file and s1_file and st.button("စာတန်းမြှုပ်မည်", key="btn_free"):
         with st.spinner("Processing..."):
             vp, sp, fp, op = "temp_v1.mp4", "temp_s1.srt", "myanmar_font.ttf", "output_sub.mp4"
@@ -243,11 +247,12 @@ with tab3:
             
                 if success_count > 0:
                     final_audio = CompositeAudioClip(audio_clips)
+                    
                     if final_audio.duration > video.duration:
                         final_audio = final_audio.subclip(0, video.duration)
                     else:
                         final_audio = final_audio.set_duration(video.duration)
-                    
+                        
                     final_video = video.set_audio(final_audio)
                     
                     final_video.write_videofile(
@@ -268,4 +273,4 @@ with tab3:
             if os.path.exists(vp2): os.remove(vp2)
             if os.path.exists(sp2): os.remove(sp2)
             if os.path.exists(op2): os.remove(op2)
-                    
+            
