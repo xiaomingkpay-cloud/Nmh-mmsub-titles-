@@ -2,12 +2,18 @@ import streamlit as st
 import os
 import pysubs2
 import numpy as np
-import subprocess
+import asyncio
+import edge_tts
 import google.generativeai as genai
 from datetime import datetime
 from streamlit.web.server.websocket_headers import _get_websocket_headers
 from moviepy.editor import VideoFileClip, ImageClip, CompositeVideoClip, AudioFileClip, CompositeAudioClip
 from PIL import Image, ImageDraw, ImageFont
+import nest_asyncio
+
+# 🔥 CRITICAL FIX: Server Loop ပြဿနာဖြေရှင်းခြင်း
+# ဒီစာကြောင်းက Error တက်တာကို ကာကွယ်ပေးပါလိမ့်မယ်
+nest_asyncio.apply()
 
 # Website ခေါင်းစဉ်
 st.set_page_config(page_title="NMH Pro Creator Mood", layout="wide")
@@ -49,10 +55,10 @@ st.markdown("""
 """)
 st.success("📢 Facebook / TikTok / VPN / Follower နှင့် တခြား Premium Service များလဲ ရသည်!")
 
-tab1, tab2, tab3 = st.tabs(["Tab 1: 🌐 Get SRT (Gemini)", "Tab 2: 📝 စာတန်းမြှုပ် (Free)", "Tab 3: 🗣️ အသံထည့် (Pro - Speed Mode)"])
+tab1, tab2, tab3 = st.tabs(["Tab 1: 🌐 Get SRT (Gemini)", "Tab 2: 📝 စာတန်းမြှုပ် (Free)", "Tab 3: 🗣️ အသံထည့် (Pro - Ultimate Fix)"])
 
 # ==========================================
-# TAB 1: GEMINI (Manual)
+# TAB 1: GEMINI
 # ==========================================
 with tab1:
     st.header("အဆင့် ၁ - Gemini မှ SRT စာသားတောင်းယူပါ")
@@ -70,7 +76,7 @@ with tab1:
         with open(output_srt, "rb") as f: st.download_button("Download SRT", f.read(), "myanmar.srt", "text/plain")
 
 # ==========================================
-# TAB 2: BURN SUBTITLE (Free)
+# TAB 2: BURN SUBTITLE
 # ==========================================
 with tab2:
     st.header("Tab 2: စာတန်းမြှုပ်ခြင်း (Free)")
@@ -127,10 +133,10 @@ with tab2:
             if os.path.exists(op): os.remove(op)
 
 # ==========================================
-# TAB 3: PRO VERSION (CLI METHOD - NO ERROR)
+# TAB 3: PRO VERSION (PYTHON FIX WITH NEST_ASYNCIO)
 # ==========================================
 with tab3:
-    st.header("Tab 3: Video အသံထည့်ခြင်း (Fast AI Voice)")
+    st.header("Tab 3: Video အသံထည့်ခြင်း (Pro)")
     
     if "user_info" not in st.session_state: st.session_state.user_info = None
     
@@ -176,39 +182,33 @@ with tab3:
     voice_option = st.selectbox("Voice Selection", ("Female (Thiri) - မသီရိ", "Male (Sai Nyi) - ကိုစိုင်းညီ"))
     VOICE_ID = "my-MM-ThiriNeural" if "Female" in voice_option else "my-MM-SaiNyiNeural"
     
-    # Speed Control (စကားပြောမြန်နှုန်း)
+    # Speed Control Slider
     speed_boost = st.select_slider("စကားပြောနှုန်း (Speaking Rate)", options=["Normal", "Fast (+10%)", "Very Fast (+20%)"], value="Fast (+10%)")
     
-    RATE_CMD = "+0%"
-    if speed_boost == "Fast (+10%)": RATE_CMD = "+10%"
-    elif speed_boost == "Very Fast (+20%)": RATE_CMD = "+20%"
+    # Python Code အတွက် Rate သတ်မှတ်ခြင်း
+    RATE_VAL = "+0%"
+    if speed_boost == "Fast (+10%)": RATE_VAL = "+10%"
+    elif speed_boost == "Very Fast (+20%)": RATE_VAL = "+20%"
 
     keep_original = st.checkbox("Keep Original Audio (Background)", value=True)
 
-    # --- CLI GENERATION (NO ASYNC ERROR) ---
-    def generate_voice_cli(text, output_file, voice_id, rate):
-        # စာသားသန့်ရှင်းရေး
+    # --- PYTHON GENERATION WITH NESTED LOOP FIX ---
+    async def generate_voice_python(text, output_file, voice_id, rate):
         clean_text = text.replace('"', '').replace("'", "").strip()
         if not clean_text: return False
         
-        # Command Line မှတဆင့် တိုက်ရိုက်မောင်းခြင်း (Error ကင်းစင်)
-        # edge-tts --text "Hello" --write-media out.mp3 --voice my-MM-ThiriNeural --rate=+10%
         try:
-            command = [
-                "edge-tts",
-                "--text", clean_text,
-                "--write-media", output_file,
-                "--voice", voice_id,
-                "--rate", rate
-            ]
-            subprocess.run(command, check=True)
+            # communicate ကို rate နဲ့ တွဲသုံးခြင်း
+            communicate = edge_tts.Communicate(clean_text, voice_id, rate=rate)
+            await communicate.save(output_file)
             return True
         except Exception as e:
-            print(f"CLI Error: {e}")
+            # Error အတိအကျကို Print ထုတ်ကြည့်ခြင်း
+            print(f"Gen Error: {e}")
             return False
 
-    if v2_file and s2_file and st.button("Start Dubbing (Fast Mode)", key="btn_pro"):
-        with st.spinner("အသံသွင်းနေပါသည် (Speed Mode)..."):
+    if v2_file and s2_file and st.button("Start Dubbing (Pro)", key="btn_pro"):
+        with st.spinner("အသံသွင်းနေပါသည် (Quality: High, Speed: Fixed)..."):
             vp2, sp2, op2 = "temp_v2.mp4", "temp_s2.srt", "output_dub.mp4"
             with open(vp2, "wb") as f: f.write(v2_file.getbuffer())
             with open(sp2, "wb") as f: f.write(s2_file.getbuffer())
@@ -228,23 +228,28 @@ with tab3:
                 total_lines = len(subs)
                 
                 success_count = 0
+                errors_log = []
+
                 for i, line in enumerate(subs):
                     if not line.text.strip(): continue
                     
                     text = line.text.replace("\\N", " ")
                     temp_audio = f"temp_aud_{i}.mp3"
                     
-                    # Call CLI Generator
-                    is_success = generate_voice_cli(text, temp_audio, VOICE_ID, RATE_CMD)
-                    
-                    if is_success and os.path.exists(temp_audio):
-                        generated_files.append(temp_audio)
-                        try:
+                    # Run Async Function with asyncio.run() - Works because of nest_asyncio
+                    try:
+                        asyncio.run(generate_voice_python(text, temp_audio, VOICE_ID, RATE_VAL))
+                        
+                        if os.path.exists(temp_audio) and os.path.getsize(temp_audio) > 0:
+                            generated_files.append(temp_audio)
                             audioclip = AudioFileClip(temp_audio)
                             audioclip = audioclip.set_start(line.start / 1000)
                             audio_clips.append(audioclip)
                             success_count += 1
-                        except: pass
+                        else:
+                            errors_log.append(f"Line {i}: File not created")
+                    except Exception as e:
+                        errors_log.append(f"Line {i} Error: {str(e)}")
                     
                     progress_bar.progress((i + 1) / total_lines)
             
@@ -259,16 +264,17 @@ with tab3:
                     )
                     
                     st.success(f"Success! (Created {success_count} lines)")
-                    with open(op2, "rb") as f: st.download_button("Download Dubbed Video", f.read(), "dubbed_fast.mp4", "video/mp4")
+                    with open(op2, "rb") as f: st.download_button("Download Dubbed Video", f.read(), "dubbed_pro.mp4", "video/mp4")
                 else:
-                    st.error("Error: အသံဖိုင် ထုတ်မရပါ။ (CLI Error)")
+                    st.error("Error: အသံဖိုင် ထုတ်မရပါ။ အောက်ပါ Error ကို စစ်ဆေးပါ:")
+                    st.write(errors_log) # အမှားကို ထုတ်ပြမည်
 
                 for f in generated_files: 
                     if os.path.exists(f): os.remove(f)
 
-            except Exception as e: st.error(f"Error: {e}")
+            except Exception as e: st.error(f"Critical Error: {e}")
             
             if os.path.exists(vp2): os.remove(vp2)
             if os.path.exists(sp2): os.remove(sp2)
             if os.path.exists(op2): os.remove(op2)
-                
+            
