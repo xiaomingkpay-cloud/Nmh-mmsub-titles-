@@ -20,20 +20,30 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_db_data():
     try:
+        # Google Sheet ထဲက data အားလုံးကို ဖတ်ယူခြင်း
         return conn.read(ttl="0s")
-    except:
+    except Exception as e:
+        # Error တက်ခဲ့လျှင် column ခေါင်းစဉ်များဖြင့် အလွတ်တစ်ခု တည်ဆောက်ခြင်း
         return pd.DataFrame(columns=['Key', 'Daily_Count', 'Last_Time', 'Date'])
 
 def update_db_data(user_key, new_count, new_time):
     df = get_db_data()
     today_date = datetime.now().strftime("%Y-%m-%d")
     user_key_str = str(user_key)
+    
+    # DataFrame အဟောင်းထဲတွင် ရှိပြီးသား Key ကို ရှာဖွေခြင်း
     if user_key_str in df['Key'].astype(str).values:
         df.loc[df['Key'].astype(str) == user_key_str, ['Daily_Count', 'Last_Time', 'Date']] = [new_count, new_time, today_date]
     else:
-        new_row = pd.DataFrame([{'Key': user_key_str, 'Daily_Count': new_count, 'Last_Time': new_time, 'Date': today_date}])
+        # Row အသစ်ထည့်ခြင်း
+        new_row = pd.DataFrame([{'Key': user_key_str, 'Daily_Count': int(new_count), 'Last_Time': float(new_time), 'Date': today_date}])
         df = pd.concat([df, new_row], ignore_index=True)
-    conn.update(data=df)
+    
+    # Google Sheet သို့ ပြန်လည်သိမ်းဆည်းခြင်း (Worksheet Name: Sheet1)
+    try:
+        conn.update(data=df, worksheet="Sheet1")
+    except Exception as e:
+        st.error(f"⚠️ Database Update Error: {e}")
 
 # --- VIP & LIMIT SYSTEM ---
 all_vip_keys = st.secrets.get("vip_keys", {}).values()
@@ -42,14 +52,15 @@ with st.sidebar:
     st.header("🔑 Member Login")
     user_key_input = st.text_input("သီးသန့် VIP Key ကို ရိုက်ထည့်ပါ", type="password")
     
+    # Database မှ အချက်အလက်ရယူခြင်း
     db_df = get_db_data()
-    # Key မရှိလျှင် 'Free' အဖြစ် သတ်မှတ်ရန်
+    # Key မရိုက်လျှင် 'Free_User' အဖြစ် သတ်မှတ်ခြင်း
     effective_key = user_key_input if user_key_input != "" else "Free_User"
-    
     user_data = db_df[db_df['Key'].astype(str) == str(effective_key)].iloc[0] if str(effective_key) in db_df['Key'].astype(str).values else None
     
+    # နေ့စွဲအလိုက် Reset စနစ်
     today_date = datetime.now().strftime("%Y-%m-%d")
-    if user_data is not None and user_data['Date'] != today_date:
+    if user_data is not None and str(user_data['Date']) != today_date:
         user_daily_count = 0
     else:
         user_daily_count = int(user_data['Daily_Count']) if user_data is not None else 0
@@ -66,16 +77,17 @@ with st.sidebar:
         st.info("🆓 Free User အဖြစ် အသုံးပြုနေသည်။")
 
     st.divider()
-    st.subheader("📊 အသုံးပြုမှု အခြေအနေ (DB)")
+    st.subheader("📊 အသုံးပြုမှု အခြေအနေ (Database)")
     st.write(f"✅ ထုတ်ပြီးသောအရေအတွက်: **{user_daily_count} / {max_daily}**")
     
-    wait_time = 1800
+    # စောင့်ဆိုင်းချိန် တွက်ချက်ခြင်း
+    wait_time = 1800 # 30 mins
     elapsed = time.time() - user_last_time
     if elapsed < wait_time and user_last_time != 0:
         rem_min = int((wait_time - elapsed) // 60)
         st.warning(f"🕒 နောက်ထပ်ထုတ်ရန်: **{rem_min} မိနစ်** စောင့်ပါ")
 
-# --- PROCESSING LOGIC ---
+# --- PROCESSING FUNCTIONS ---
 def parse_time(time_str):
     time_str = time_str.replace(',', '.')
     parts = time_str.split(':')
@@ -125,35 +137,28 @@ def process_srt_video(v_path, srt_text, pos_pct):
     return 'NMH_Final.mp4'
 
 # --- TABS UI ---
-tab1, tab2 = st.tabs(["🌐 SRT ထုတ်ရန်", "📝 စာတန်းမြှုပ် (FREE/VIP)"])
+t1, t2 = st.tabs(["🌐 SRT ထုတ်ရန်", "📝 စာတန်းမြှုပ် (FREE/VIP)"])
 
-with tab1:
+with t1:
     st.header("🌐 Gemini မှတစ်ဆင့် SRT ထုတ်ယူခြင်း")
-    st.subheader("အဆင့် (၁) - စာသားကို Copy ယူပါ")
     prompt_text = "ဒီဗီဒီယိုအတွက် မြန်မာ SRT ထုတ်ပေးပါ"
-    col1, col2 = st.columns([3, 1])
-    with col1: st.code(prompt_text, language=None)
-    with col2: st.write("နှိပ်ပြီး Copy ယူပါ ☝️")
-    st.divider()
+    st.code(prompt_text, language=None)
     st.link_button("🤖 Gemini သို့သွားရန်", "https://gemini.google.com/")
-    srt_input = st.text_area("Gemini မှရလာသော SRT စာသားများကို ဒီမှာ Paste လုပ်ပါ", height=150)
+    srt_input = st.text_area("Gemini မှရလာသော SRT ကို ဒီမှာ Paste လုပ်ပါ", height=150)
     if srt_input:
-        st.download_button("📥 SRT ဖိုင်အဖြစ် သိမ်းဆည်းရန်", srt_input, file_name="subtitle.srt")
+        st.download_button("📥 SRT သိမ်းရန်", srt_input, file_name="subtitle.srt")
 
-with tab2:
+with t2:
     st.header("📝 မြန်မာစာတန်းထိုး Video ထုတ်ယူခြင်း")
-    v_up = st.file_uploader("Video တင်ပါ", type=["mp4", "mov"])
-    s_up = st.file_uploader("SRT တင်ပါ", type=["srt"])
+    v_up, s_up = st.file_uploader("Video တင်ပါ", type=["mp4"]), st.file_uploader("SRT တင်ပါ", type=["srt"])
     pos = st.selectbox("စာတန်းနေရာ (%)", [10, 20, 30], index=1)
     
-    # ဖိုင်နှစ်ခုလုံး တင်ပြီးလျှင် ခလုတ်ပေါ်လာစေရန် (Indent စစ်ဆေးထားသည်)
     if v_up and s_up:
         if user_daily_count >= max_daily:
             st.error(f"❌ သင်၏ တစ်နေ့တာ ဗီဒီယိုထုတ်ယူခွင့် ({max_daily} ကြိမ်) ပြည့်သွားပါပြီ။")
         elif elapsed < 1800 and user_last_time != 0:
             st.error(f"⏳ နာရီဝက်ခြားမှ တစ်ကြိမ် ထုတ်နိုင်ပါသည်။ နောက်ထပ် {int((1800-elapsed)//60)} မိနစ် စောင့်ပါ။")
         else:
-            # 🚀 ဤနေရာတွင် Render ခလုတ် ပေါ်လာပါမည်
             if st.button("🚀 Render Final Video"):
                 with open("in.mp4", "wb") as f: f.write(v_up.read())
                 res = process_srt_video("in.mp4", s_up.read().decode('utf-8', errors='ignore'), pos)
