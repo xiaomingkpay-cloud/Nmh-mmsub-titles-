@@ -85,7 +85,7 @@ with tab2:
         subs = pysubs2.load(s_path, encoding="utf-8")
         clips = []
         is_vert = v_h > v_w
-        # 🔥 အလျားလိုက် Video (16:9) အတွက် ၅၀ လုံးမှာ ဖြတ်တောက်ရန် ညှိထားပါသည်
+        # 16:9 Video Fix: ၅၀ လုံးမှာဖြတ်တောက်ပြီး အပေါ်နည်းနည်းတင်သည်
         wrap, pos, f_div = (35, 0.70, 18) if is_vert else (50, 0.75, 22)
         font = ImageFont.truetype(f_path, int(v_w / f_div))
         
@@ -127,30 +127,29 @@ def login_ui(key):
             else: st.error(err)
         else: st.error("Code မှားယွင်းနေပါသည်။")
 
-# --- TAB 3: AUDIO ---
+# --- TAB 3: AUDIO GUIDE (Corrected with Single Speaker) ---
 with tab3:
     st.header("Tab 3: အသံထုတ်လုပ်နည်း")
     if not st.session_state.user_info: login_ui("t3")
     else:
         st.success(f"✅ VIP အကောင့်: {st.session_state.user_info}")
         
-        # အသံရွေးချယ်မှုများ
         col1, col2 = st.columns(2)
         with col1:
-            st.info("**👨 ကျားအသံ (Male):**\n* Charon (အသံနက်)\n* Orion (စကားပြောသွက်)\n* Puck (လူငယ်သံ)")
+            st.info("**👨 ကျားအသံ (Male):**\n* Charon (အသံနက်)\n* Orion (တည်ငြိမ်)\n* Puck (လူငယ်သံ)")
         with col2:
             st.warning("**👩 မအသံ (Female):**\n* Nova (တက်ကြွ)\n* Shimmer (တည်ငြိမ်)\n* Aoede (အသံပါး)")
             
         st.write("---")
         
-        # လမ်းညွှန်အပြည့်အစုံ
-        st.markdown("### 📝 လမ်းညွှန်:")
+        st.markdown("### 📝 အသံထုတ်ရန် လမ်းညွှန်:")
         st.markdown("""
         1. အောက်ပါ **"Go to Google AI Studio"** ခလုတ်ကို နှိပ်ပါ။
         2. မျက်နှာပြင်ရှိ **"Turn text into audio with Gemini"** (မိုက်ကရိုဖုန်းပုံစံ) အကွက်ကို နှိပ်ပါ။
-        3. ညာဘက်ရှိ **Voice** နေရာတွင် မိမိနှစ်သက်ရာအသံ (ဥပမာ - **Charon**) ကို ရွေးပါ။
-        4. Gemini SRT မှ ရလာသောစာများကို Copy ကူးထည့်ပြီး **Generate** နှိပ်ပါ။
-        5. ဒေါင်းလုဒ် (Download) လုပ်ပြီး ရလာသောအသံဖိုင်ကို **Tab 4** တွင် Video နှင့် ပေါင်းပါ။
+        3. ညာဘက်အပေါ်နားရှိ **Speaker type** နေရာတွင် **"Single speaker"** ကို အရင်ရွေးပါ။ **(ဒါအရေးကြီးသည်)**
+        4. ထို့နောက် **Voice** နေရာတွင် မိမိနှစ်သက်ရာအသံ (ဥပမာ - **Charon**) ကို ရွေးပါ။
+        5. Gemini SRT မှ ရလာသောစာများကို Copy ကူးထည့်ပြီး **Generate** နှိပ်ပါ။
+        6. ဒေါင်းလုဒ် (Download) လုပ်ပြီး ရလာသောအသံဖိုင်ကို **Tab 4** တွင် Video နှင့် ပေါင်းပါ။
         """)
         st.link_button("🚀 Go to Google AI Studio", "https://aistudio.google.com/")
 
