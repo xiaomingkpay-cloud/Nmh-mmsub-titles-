@@ -1,5 +1,8 @@
-import streamlit as st
 import os
+# ImageMagick policy ကို Cloud ပေါ်မှာ အလုပ်လုပ်အောင် သတ်မှတ်ခြင်း (Security Error ရှင်းရန်)
+os.environ["MAGICK_CONFIGURE_PATH"] = os.getcwd()
+
+import streamlit as st
 import textwrap
 from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
 from moviepy.video.tools.subtitles import SubtitlesClip
@@ -7,7 +10,7 @@ from moviepy.video.tools.subtitles import SubtitlesClip
 # --- NMH PRO CREATOR TOOLS SETTINGS ---
 st.set_page_config(page_title="NMH Pro Creator Tools", layout="wide")
 
-# Header
+# Header Section
 st.title("✨ NMH Pro Creator Tools")
 st.markdown("### 👨‍💻 Developed by Naing Min Htet")
 
@@ -34,7 +37,9 @@ def wrap_text(text, width):
     return textwrap.fill(text, width=width)
 
 def create_subtitle_generator(video_width, video_height, is_portrait):
+    # Ratio အလိုက် စာလုံးအရေအတွက် နှင့် နေရာသတ်မှတ်ခြင်း
     char_limit = 35 if is_portrait else 50
+    # အောက်ခြေမှ အကွာအဝေး (Margin)
     margin_pct = 0.40 if is_portrait else 0.30
     bottom_pos = video_height * (1 - margin_pct)
 
@@ -45,7 +50,7 @@ def create_subtitle_generator(video_width, video_height, is_portrait):
             font='myanmar_font.ttf',
             fontsize=35 if is_portrait else 45,
             color='white',
-            bg_color='black',
+            bg_color='black', # စာသားနောက်ခံအရောင်
             method='caption',
             size=(video_width * 0.85, None)
         ).set_position(('center', bottom_pos))
@@ -53,6 +58,8 @@ def create_subtitle_generator(video_width, video_height, is_portrait):
 
 with tab2:
     st.header("📝 မြန်မာစာတန်းထိုး Video ထုတ်ယူခြင်း")
+    st.info("💡 16:9 နှင့် 9:16 Ratio အလိုက် စာသားများကို အလိုအလျောက် ချိန်ညှိပေးပါမည်။")
+    
     v_file = st.file_uploader("ဗီဒီယိုဖိုင် တင်ပါ", type=["mp4", "mov"], key="v2_up")
     s_file = st.file_uploader("SRT ဖိုင် တင်ပါ", type=["srt"], key="s2_up")
 
@@ -60,21 +67,35 @@ with tab2:
         if st.button("🚀 Render Video"):
             try:
                 with st.spinner('ဗီဒီယိုကို ဖန်တီးနေသည်... ခေတ္တစောင့်ပါ'):
+                    # Save Temp Files
                     with open("temp_v.mp4", "wb") as f: f.write(v_file.read())
                     with open("temp_s.srt", "wb") as f: f.write(s_file.read())
                     
                     clip = VideoFileClip("temp_v.mp4")
+                    
+                    # Portrait (9:16) ဟုတ်မဟုတ် စစ်ဆေးခြင်း
                     is_portrait = clip.w < clip.h
+                    
+                    # Generator ခေါ်ယူခြင်း
                     sub_gen = create_subtitle_generator(clip.w, clip.h, is_portrait)
                     
+                    # Subtitles ပေါင်းစပ်ခြင်း
                     subtitles = SubtitlesClip("temp_s.srt", sub_gen)
                     final_video = CompositeVideoClip([clip, subtitles])
                     
                     output_path = "NMH_Subtitled.mp4"
-                    final_video.write_videofile(output_path, fps=clip.fps, codec="libx264", audio_codec="aac", temp_audiofile="temp-audio.m4a", remove_temp=True)
+                    final_video.write_videofile(
+                        output_path, 
+                        fps=clip.fps, 
+                        codec="libx264", 
+                        audio_codec="aac", 
+                        temp_audiofile="temp-audio.m4a", 
+                        remove_temp=True
+                    )
                     
                     st.success("အောင်မြင်ပါသည်!")
                     st.video(output_path)
+                    
                     with open(output_path, "rb") as f:
                         st.download_button("📥 Video ကိုဒေါင်းလုဒ်ဆွဲရန်", f, file_name="NMH_Subtitled.mp4")
             except Exception as e:
@@ -83,4 +104,4 @@ with tab2:
 # Tab 3 & 4 (Placeholders)
 with tab3: st.info("Tab 3: Coming Soon")
 with tab4: st.info("Tab 4: Coming Soon")
-
+    
