@@ -190,7 +190,7 @@ def show_login_ui(key_suffix):
         else: st.error("ကုဒ် မှားယွင်းနေပါသည်။")
 
 # ==========================================
-# TAB 3: GOOGLE AI STUDIO
+# TAB 3: GOOGLE AI STUDIO (FULL GUIDE)
 # ==========================================
 with tab3:
     st.header("Tab 3: အသံဖိုင်ထုတ်လုပ်နည်း (Audio Generation)")
@@ -198,16 +198,44 @@ with tab3:
         show_login_ui("t3")
     else:
         st.success(f"✅ VIP အကောင့်ဖြင့် ဝင်ရောက်ထားပါသည်: {st.session_state.user_info}")
+        
+        # --- Voice Recommendations ---
+        st.markdown("### 🔊 အသံရွေးချယ်ရန် လမ်းညွှန်")
+        
         col_m, col_f = st.columns(2)
         with col_m:
-            st.info("""**👨 ယောက်ျားအသံ (Male):**\n* Charon\n* Orion\n* Puck""")
+            st.info("""
+            **👨 ယောက်ျားအသံ (Male) လိုချင်ပါက:**
+            * **Charon** (အသံနက်)
+            * **Orion** (အသံသွက်)
+            * **Puck** (လူငယ်အသံ)
+            **👉 ဒီ (၃) ခုထဲက တစ်ခုခုကို ရွေးပေးပါ။**
+            """)
         with col_f:
-            st.warning("""**👩 မိန်းမအသံ (Female):**\n* Nova\n* Shimmer\n* Aoede""")
+            st.warning("""
+            **👩 မိန်းမအသံ (Female) လိုချင်ပါက:**
+            * **Nova** (တက်ကြွသည်)
+            * **Shimmer** (တည်ငြိမ်သည်)
+            * **Aoede** (အသံပါး)
+            **👉 ဒီ (၃) ခုထဲက တစ်ခုခုကို ရွေးပေးပါ။**
+            """)
+        
         st.write("---")
+        
+        # --- Step-by-Step Guide ---
+        st.markdown("### 📝 လုပ်ဆောင်ရမည့် အဆင့်ဆင့်:")
+        st.markdown("""
+        1. အောက်ပါ **"Go to Google AI Studio"** ခလုတ်ကို နှိပ်ပါ။
+        2. ဘယ်ဘက်ထောင့်ရှိ **Create New > Speech** ကို နှိပ်ပါ။
+        3. ညာဘက်ရှိ **Voice** နေရာတွင် အပေါ်ကပြောထားသော အသံတစ်ခုခု (ဥပမာ - **Charon** သို့မဟုတ် **Nova**) ကို ရွေးပါ။
+        4. စာသားများကို Copy ကူးထည့်ပြီး **Generate** လုပ်ပါ။
+        5. ပြီးလျှင် **Download** လုပ်ပြီး Tab 4 တွင် ပြန်သုံးပါ။
+        """)
+        
         st.link_button("🚀 Google AI Studio သို့ သွားရန် နှိပ်ပါ", "https://aistudio.google.com/")
 
 # ==========================================
-# TAB 4: MANUAL MERGE (FFMPEG VERSION)
+# TAB 4: MANUAL MERGE (FFMPEG - NO ERROR)
 # ==========================================
 with tab4:
     st.header("Tab 4: Video နှင့် အသံဖိုင် ပေါင်းစပ်ခြင်း")
@@ -224,22 +252,25 @@ with tab4:
         with col_v: video_input = st.file_uploader("၁။ Video ဖိုင် ရွေးချယ်ပါ", type=["mp4", "mov", "avi"], key="vid_merge")
         with col_a: audio_input = st.file_uploader("၂။ အသံဖိုင် ရွေးချယ်ပါ (MP3/WAV)", type=["mp3", "wav", "m4a"], key="aud_merge")
         
-        st.write("⏱️ **အသံ အနှေး/အမြန် ချိန်ညှိရန်:**")
-        speed_option = st.select_slider("Slide to adjust speed", options=["0.5x", "0.75x", "1.0x", "1.25x", "1.5x", "2.0x"], value="1.0x")
+        st.write("⏱️ **အသံ အနှေး/အမြန် ချိန်ညှိရန် (Audio Speed):**")
+        speed_option = st.select_slider(
+            "Slide to adjust speed", 
+            options=["0.5x (Slow)", "0.75x", "1.0x (Normal)", "1.25x (Fast)", "1.5x (Faster)", "2.0x"], 
+            value="1.0x (Normal)"
+        )
 
         keep_bg = st.checkbox("မူရင်း Video နောက်ခံအသံကို မဖျက်ဘဲထားမည်", value=True, key="bg_t4")
 
-        # --- FFmpeg Speed Change Function (No Pydub) ---
+        # --- FFmpeg Speed Change Function (Error Free) ---
         def change_audio_speed_ffmpeg(input_file, output_file, speed_str):
-            # Map speed string to float value for ffmpeg atempo filter
             if "0.5x" in speed_str: rate = "0.5"
             elif "0.75x" in speed_str: rate = "0.75"
             elif "1.25x" in speed_str: rate = "1.25"
             elif "1.5x" in speed_str: rate = "1.5"
             elif "2.0x" in speed_str: rate = "2.0"
-            else: return input_file # 1.0x or unknown
+            else: return input_file 
 
-            # FFmpeg command: ffmpeg -i input.mp3 -filter:a "atempo=1.25" -vn output.mp3
+            # FFmpeg Command
             cmd = [
                 "ffmpeg", "-y",
                 "-i", input_file,
@@ -266,7 +297,7 @@ with tab4:
                 try:
                     # 1. Audio Speed Change (FFmpeg)
                     final_audio_path = t_aud
-                    if "1.0x" not in speed_option:
+                    if "Normal" not in speed_option:
                         final_audio_path = change_audio_speed_ffmpeg(t_aud, processed_aud, speed_option)
 
                     vc = VideoFileClip(t_vid)
