@@ -70,7 +70,7 @@ def show_login_ui(key):
 # ==========================================
 st.title("✨ NMH Pro Creator Tools")
 
-# 👨‍💻 Creator Info & Social Buttons
+# 👨‍💻 Creator Social Buttons
 col_h1, col_h2 = st.columns([2, 1.5])
 with col_h1:
     st.markdown("### 👨‍💻 Developed by Naing Min Htet")
@@ -87,20 +87,19 @@ st.markdown("---")
 # ==========================================
 tab1, tab2, tab3, tab4 = st.tabs(["🌐 SRT ထုတ်ရန်", "📝 စာတန်းမြှုပ် (FREE/VIP)", "🗣️ အသံထုတ်ရန် (VIP)", "🎬 Video ပေါင်းရန် (VIP)"])
 
-# --- TAB 1: SRT GENERATOR (FIXED WITH INSTRUCTIONS) ---
+# --- TAB 1: SRT GENERATOR (WITH COPY BUTTON) ---
 with tab1:
     st.header("Gemini SRT Generator")
     
-    # 🔥 Added Instructions for Tab 1
     st.markdown("### 📝 SRT ထုတ်ယူပုံ လမ်းညွှန်:")
     st.markdown("""
-    1. အောက်ပါ **"Google Gemini သို့သွားရန်"** ခလုတ်ကို နှိပ်ပါ။
-    2. အပေါင်း + ကိုနှိပ်ပါ
-    3. Gemini တွင် မိမိဘာသာပြန်လိုသော vdကို ထည့်ပါ။
-    4. Gemini ကို အောက်ပါအတိုင်း ခိုင်းစေပါ -
-       * *"အထက်ပါ vdကို မြန်မာလို ဘာသာပြန်ပေးပြီး SRT Format (timestamps ပါဝင်သော format) အဖြစ် ထုတ်ပေးပါ။"*
-    5. Gemini မှ ထွက်လာသော SRT ကုဒ်များကို Copy ကူးယူပြီး အောက်ပါ အကွက်ထဲတွင် ထည့်ပါ။
+    1. အောက်ပါ **"Myanmar SRT Copy ခလုတ်"** ကို အရင်နှိပ်ပါ။
+    2. ထို့နောက် **"Google Gemini သို့သွားရန်"** ကို နှိပ်ပြီး Gemini ထဲတွင် Paste လုပ်ပါ။
     """)
+    
+    # 🔥 Myanmar SRT Prompt Copy ခလုတ်
+    # st.copy_button သည် နှိပ်လိုက်လျှင် စာသားကို တန်းကော်ပီကူးပေးပါသည်
+    st.copy_button("📋 Myanmar SRT Copy ခလုတ်", "Myanmar စာတန်ထိုး srt ထုတ်ပေးပါ")
     st.link_button("🚀 Google Gemini သို့သွားရန်", "https://gemini.google.com/")
     
     srt_ta = st.text_area("Gemini မှ ရလာသော SRT စာသားများကို ဒီမှာထည့်ပါ:", height=200, key="t1_ta")
@@ -116,12 +115,12 @@ with tab2:
     is_vip = st.session_state.user_info is not None
     
     if is_vip:
-        st.success(f"🌟 VIP အကောင့်: {st.session_state.user_info} (အကန့်အသတ်မရှိ အသုံးပြုနိုင်ပါသည်)")
+        st.success(f"🌟 VIP အကောင့်: {st.session_state.user_info} (Unlimited အသုံးပြုနိုင်ပါသည်)")
     else:
         if u_ip not in usage_data["users"]: usage_data["users"][u_ip] = 0
         left = 3 - usage_data["users"][u_ip]
-        if left > 0: st.info(f"✅ Free လက်ကျန်: {left}/3 ပုဒ် (VIP ဝယ်ယူပါက Unlimited သုံးနိုင်ပါသည်)")
-        else: st.error("⛔ Daily Limit Reached (ဆက်လက်အသုံးပြုရန် VIP ကုဒ်ဖြင့် Login ဝင်ပါ)")
+        if left > 0: st.info(f"✅ Free လက်ကျန်: {left}/3 ပုဒ်")
+        else: st.error("⛔ Daily Limit Reached (VIP Login ဝင်ပါ)")
 
     v_file = st.file_uploader("Video တင်ပါ", type=["mp4", "mov"], key="t2_v")
     s_file = st.file_uploader("SRT တင်ပါ", type=["srt"], key="t2_s")
@@ -130,7 +129,7 @@ with tab2:
         subs = pysubs2.load(s_path, encoding="utf-8")
         clips = []
         is_v = v_h > v_w
-        # Ratio & Char Settings
+        # Ratio Settings
         wrap, pos, f_div = (35, 0.65, 18) if is_v else (50, 0.60, 22)
         font = ImageFont.truetype(f_path, int(v_w / f_div))
         for line in subs:
@@ -163,7 +162,7 @@ with tab2:
             for f in ["t_v.mp4", "t_s.srt", "o.mp4"]:
                 if os.path.exists(f): os.remove(f)
 
-# --- TAB 3: AUDIO GUIDE ---
+# --- TAB 3: AUDIO ---
 with tab3:
     st.header("Tab 3: အသံထုတ်လုပ်နည်း")
     if not st.session_state.user_info: show_login_ui("t3")
@@ -174,15 +173,7 @@ with tab3:
             st.info("**👨 ကျားအသံ (Male Voice Color):**\n* Charon (အသံနက်/တည်ငြိမ်)\n* Orion (စကားပြောသွက်/တက်ကြွ)\n* Puck (လူငယ်သံ/ကြည်လင်)")
         with col2:
             st.warning("**👩 မအသံ (Female Voice Color):**\n* Nova (တက်ကြွ/ထင်ရှား)\n* Shimmer (တည်ငြိမ်/အေးချမ်း)\n* Aoede (အသံပါး/နူးညံ့)")
-        st.write("---")
-        st.markdown("### 📝 အသံထုတ်ယူပုံ အဆင့်ဆင့်:")
-        st.markdown("""
-        1. အောက်ပါ **"Go to Google AI Studio"** ကို နှိပ်ပါ။
-        2. **"Turn text into audio with Gemini"** ကဒ်ကို နှိပ်ပါ။
-        3. ညာဘက်ရှိ **Speaker type** တွင် **"Single speaker"** ကို အရင်ရွေးပါ။
-        4. Voice တွင် မိမိနှစ်သက်ရာအသံကို ရွေးပါ။
-        5. စာသားများထည့်ပြီး **Generate** လုပ်ပါ။ ဒေါင်းလုဒ်ဆွဲပြီး **Tab 4** တွင် သုံးပါ။
-        """)
+        st.markdown("### 📝 အသံထုတ်ယူပုံ အဆင့်ဆင့်:\n1. Google AI Studio သွားပါ။\n2. 'Turn text into audio' ကဒ်ကို နှိပ်ပါ။\n3. 'Single speaker' ရွေးပါ။\n4. အသံရွေး၊ စာထည့်ပြီး Generate လုပ်ပါ။")
         st.link_button("🚀 Go to Google AI Studio", "https://aistudio.google.com/")
 
 # --- TAB 4: MERGE ---
@@ -205,7 +196,7 @@ with tab4:
                     fin_a = f"a.{a_ex}"
                     if spd != "1.0x":
                         subprocess.run(["ffmpeg", "-y", "-i", fin_a, "-filter:a", f"atempo={spd.replace('x','')}", "-vn", "ap.mp3"])
-                        final_a = "ap.mp3"
+                        fin_a = "ap.mp3"
                     vc = VideoFileClip("v.mp4")
                     ac = AudioFileClip(fin_a)
                     if ac.duration > vc.duration: ac = ac.subclip(0, vc.duration)
