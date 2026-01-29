@@ -7,16 +7,32 @@ import textwrap
 from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
 from moviepy.video.tools.subtitles import SubtitlesClip
 
-# Page configuration
+# --- NMH PRO CREATOR TOOLS SETTINGS ---
 st.set_page_config(page_title="NMH Pro Creator Tools", layout="wide")
 
 # Header Section
 st.title("✨ NMH Pro Creator Tools")
 st.markdown("### 👨‍💻 Developed by Naing Min Htet")
 
+# Tab ၄ ခု သတ်မှတ်ခြင်း
 tab1, tab2, tab3, tab4 = st.tabs(["🌐 SRT ထုတ်ရန်", "📝 စာတန်းမြှုပ် (FREE/VIP)", "🗣️ အသံထုတ်ရန် (VIP)", "🎬 Video ပေါင်းရန် (VIP)"])
 
-# --- Tab 2: SRT file ကို Video ပေါ်စာတန်းထိုးခြင်း ---
+# --- Tab 1: SRT Helper (ပျောက်နေတာ ပြန်ထည့်ပေးထားသည်) ---
+with tab1:
+    st.header("🌐 Gemini မှတစ်ဆင့် SRT ထုတ်ယူခြင်း")
+    st.info("ဒီဗီဒီယိုအတွက် မြန်မာ SRT ထုတ်ပေးပါ")
+    st.caption("အပေါ်ကစာသားကို Copy ကူးပြီး Gemini မှာ ခိုင်းပေးပါ။")
+    st.link_button("🤖 Gemini သို့သွားရန်", "https://gemini.google.com/")
+    
+    st.divider()
+    st.subheader("📝 SRT စာသားကို ဖိုင်အဖြစ် ပြောင်းလဲရန်")
+    srt_content = st.text_area("Gemini မှရလာသော SRT စာသားများကို ဒီမှာ Paste လုပ်ပါ", height=200)
+    
+    if srt_content:
+        st.download_button(label="📥 SRT ဖိုင်အဖြစ် ဒေါင်းလုဒ်ဆွဲရန်", data=srt_content, file_name="subtitle.srt", mime="text/plain")
+        st.success("စာသားများကို subtitle.srt အဖြစ် ပြောင်းလဲရန် အဆင်သင့်ဖြစ်ပါပြီ။")
+
+# --- Tab 2: စာတန်းမြှုပ်ခြင်း Logic ---
 def wrap_text(text, width):
     return textwrap.fill(text, width=width)
 
@@ -29,7 +45,7 @@ def create_subtitle_generator(video_width, video_height, is_portrait):
         wrapped_txt = wrap_text(txt, char_limit)
         return TextClip(
             wrapped_txt,
-            font='myanmar_font.ttf', # font နာမည်မှန်ပါစေ
+            font='myanmar_font.ttf', 
             fontsize=35 if is_portrait else 45,
             color='white',
             bg_color='black', 
@@ -62,6 +78,13 @@ with tab2:
                     
                     st.success("အောင်မြင်ပါသည်!")
                     st.video(output_path)
+                    
+                    with open(output_path, "rb") as f:
+                        st.download_button("📥 Video ကိုဒေါင်းလုဒ်ဆွဲရန်", f, file_name="NMH_Subtitled.mp4")
             except Exception as e:
                 st.error(f"Error: {str(e)}")
-                
+
+# Placeholders for Tab 3 & 4
+with tab3: st.info("Coming Soon...")
+with tab4: st.info("Coming Soon...")
+
