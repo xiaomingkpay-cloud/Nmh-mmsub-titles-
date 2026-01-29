@@ -43,16 +43,14 @@ def check_code_validity(user_value):
         except: return True, user_value, None
     return True, user_value, None
 
-# Auto Login Check
 if "user_info" not in st.session_state:
     st.session_state.user_info = None
     current_ip = get_remote_ip()
     for code, bound_ip in usage_data["bindings"].items():
-        if bound_ip == current_ip and code in st.secrets.get("users", {}):
+        if bound_ip in usage_data["bindings"].values() and code in st.secrets.get("users", {}):
             ok, name, err = check_code_validity(st.secrets["users"][code])
             if ok: st.session_state.user_info = name
 
-# --- VIP LOGIN UI ---
 def show_login_ui(key):
     st.warning("🔒 VIP ကုဒ် လိုအပ်ပါသည်။")
     tk = st.text_input("Enter Token:", type="password", key=f"tk_{key}")
@@ -73,7 +71,7 @@ st.title("✨ NMH Pro Creator Tools")
 
 tab1, tab2, tab3, tab4 = st.tabs(["🌐 SRT ထုတ်ရန်", "📝 စာတန်းမြှုပ် (Free)", "🗣️ အသံထုတ်ရန် (VIP)", "🎬 Video ပေါင်းရန် (VIP)"])
 
-# --- TAB 1: SRT ---
+# --- TAB 1 ---
 with tab1:
     st.header("Gemini SRT Generator")
     st.link_button("🚀 Google Gemini သို့သွားရန်", "https://gemini.google.com/")
@@ -83,12 +81,12 @@ with tab1:
         st.success("အောင်မြင်ပါသည်!")
         st.download_button("Download SRT", clean, "myanmar.srt")
 
-# --- TAB 2: SUBTITLE BURNER (BACKGROUND BOX + POSITION FIX) ---
+# --- TAB 2 ---
 with tab2:
     st.header("Tab 2: စာတန်းမြှုပ်ခြင်း (Free)")
-    user_ip = get_remote_ip()
-    if user_ip not in usage_data["users"]: usage_data["users"][user_ip] = 0
-    left = 3 - usage_data["users"][user_ip]
+    u_ip = get_remote_ip()
+    if u_ip not in usage_data["users"]: usage_data["users"][u_ip] = 0
+    left = 3 - usage_data["users"][u_ip]
     if left > 0: st.info(f"✅ လက်ကျန်: {left}/3 ပုဒ်")
     else: st.error("⛔ Limit Reached")
 
@@ -98,63 +96,62 @@ with tab2:
     def make_subs(s_path, v_w, v_h, f_path):
         subs = pysubs2.load(s_path, encoding="utf-8")
         clips = []
-        is_vert = v_h > v_w
-        # Ratio အလိုက် နေရာနှင့် အရွယ်အစားညှိခြင်း
-        wrap, pos, f_div = (32, 0.70, 18) if is_vert else (42, 0.62, 22)
+        is_v = v_h > v_w
+        wrap, pos, f_div = (32, 0.70, 18) if is_v else (42, 0.60, 22)
         font = ImageFont.truetype(f_path, int(v_w / f_div))
-        
         for line in subs:
             if not line.text.strip(): continue
             txt = textwrap.fill(line.text.replace("\\N", " "), width=wrap)
-            
-            # 🔥 BOX FIX: ၃ တန်းအထိ အဆင်ပြေစေရန် Box အရွယ်အစားကို တိုးမြှင့်လိုက်သည်
-            box_w, box_h = int(v_w * 0.98), int(v_h * 0.70)
+            box_w, box_h = int(v_w * 0.98), int(v_h * 0.80)
             img = Image.new('RGBA', (box_w, box_h), (0,0,0,0))
             draw = ImageDraw.Draw(img)
-            
-            # စာသားအရွယ်အစားကို တိုင်းတာခြင်း
             bbox = draw.textbbox((box_w/2, box_h/2), txt, font=font, anchor="mm", align="center")
-            padding = 15
-            bg_rect = [bbox[0]-padding, bbox[1]-padding, bbox[2]+padding, bbox[3]+padding]
-            
-            # 🔥 BACKGROUND BOX: စာသားနောက်ခံ အနက်ရောင်မှိန်မှိန် ထည့်သွင်းခြင်း
-            draw.rectangle(bg_rect, fill=(0, 0, 0, 140)) # 140 = 55% transparency
-            
-            # စာသားရေးဆွဲခြင်း
-            draw.text((box_w/2, box_h/2), txt, font=font, fill="white", 
-                      stroke_width=2, stroke_fill="black", anchor="mm", align="center")
-            
-            c = ImageClip(np.array(img)).set_start(line.start/1000).set_duration((line.end-line.start)/1000)
-            c = c.set_position(('center', pos), relative=True)
+            pad = 15
+            draw.rectangle([bbox[0]-pad, bbox[1]-pad, bbox[2]+pad, bbox[3]+pad], fill=(0, 0, 0, 150))
+            draw.text((box_w/2, box_h/2), txt, font=font, fill="white", stroke_width=2, stroke_fill="black", anchor="mm", align="center")
+            c = ImageClip(np.array(img)).set_start(line.start/1000).set_duration((line.end-line.start)/1000).set_position(('center', pos), relative=True)
             clips.append(c)
         return clips
 
     if left > 0 and v_file and s_file and st.button("စာတန်းမြှုပ်မည်", key="t2_btn"):
-        with st.spinner("စာသားနောက်ခံဖြင့် ၃ တန်းအထိပေါ်အောင် လုပ်ဆောင်နေပါသည်..."):
-            with open("temp_v.mp4", "wb") as f: f.write(v_file.getbuffer())
-            with open("temp_s.srt", "wb") as f: f.write(s_file.getbuffer())
+        with st.spinner("Processing..."):
+            with open("t_v.mp4", "wb") as f: f.write(v_file.getbuffer())
+            with open("t_s.srt", "wb") as f: f.write(s_file.getbuffer())
             try:
-                vid = VideoFileClip("temp_v.mp4")
-                final = CompositeVideoClip([vid] + make_subs("temp_s.srt", vid.w, vid.h, "myanmar_font.ttf"))
-                final.write_videofile("out.mp4", fps=24, codec='libx264', audio_codec='aac')
-                usage_data["users"][user_ip] += 1
+                vid = VideoFileClip("t_v.mp4")
+                final = CompositeVideoClip([vid] + make_subs("t_s.srt", vid.w, vid.h, "myanmar_font.ttf"))
+                final.write_videofile("o.mp4", fps=24, codec='libx264', audio_codec='aac')
+                usage_data["users"][u_ip] += 1
                 st.success("အောင်မြင်ပါသည်!")
-                with open("out.mp4", "rb") as f: st.download_button("Download", f.read(), "subbed.mp4")
+                with open("o.mp4", "rb") as f: st.download_button("Download", f.read(), "subbed.mp4")
             except Exception as e: st.error(str(e))
-            for f in ["temp_v.mp4", "temp_s.srt", "out.mp4"]: 
+            for f in ["t_v.mp4", "t_s.srt", "o.mp4"]:
                 if os.path.exists(f): os.remove(f)
 
-# --- TAB 3: AUDIO & TAB 4: MERGE (အရင်အတိုင်း မထိခိုက်အောင် ထားရှိပါသည်) ---
+# --- TAB 3 (FULL INSTRUCTIONS) ---
 with tab3:
     st.header("Tab 3: အသံထုတ်လုပ်နည်း")
     if not st.session_state.user_info: show_login_ui("t3")
     else:
-        st.success(f"✅ VIP အကောင့်: {st.session_state.user_info}")
+        st.success(f"✅ VIP အကောင့်ဖြင့် ဝင်ရောက်ထားပါသည်: {st.session_state.user_info}")
         col1, col2 = st.columns(2)
-        with col1: st.info("**👨 ကျားအသံ:**\n* Charon, Orion, Puck")
-        with col2: st.warning("**👩 မအသံ:**\n* Nova, Shimmer, Aoede")
+        with col1:
+            st.info("**👨 ကျားအသံ (Male):**\n* Charon (အသံနက်)\n* Orion (စကားပြောသွက်)\n* Puck (လူငယ်သံ)")
+        with col2:
+            st.warning("**👩 မအသံ (Female):**\n* Nova (တက်ကြွ)\n* Shimmer (တည်ငြိမ်)\n* Aoede (အသံပါး)")
+        
+        st.write("---")
+        st.markdown("### 📝 လမ်းညွှန်:")
+        st.markdown("""
+        1. အောက်ပါ **"Go to Google AI Studio"** ခလုတ်ကို နှိပ်ပါ။
+        2. မျက်နှာပြင်ရှိ **"Turn text into audio with Gemini"** ကဒ်ကို နှိပ်ပါ။
+        3. ညာဘက်ရှိ **Speaker type** တွင် **"Single speaker"** ကို အရင်ရွေးပါ။
+        4. ထို့နောက် **Voice** တွင် မိမိနှစ်သက်ရာအသံကို ရွေးပါ။
+        5. စာသားများထည့်ပြီး **Generate** လုပ်ပါ။ ဒေါင်းလုဒ်ဆွဲပြီး **Tab 4** တွင် သုံးပါ။
+        """)
         st.link_button("🚀 Go to Google AI Studio", "https://aistudio.google.com/")
 
+# --- TAB 4 (CUSTOM SPEED) ---
 with tab4:
     st.header("Tab 4: Video နှင့် အသံဖိုင် ပေါင်းစပ်ခြင်း")
     if not st.session_state.user_info: show_login_ui("t4")
@@ -167,23 +164,22 @@ with tab4:
         bg = st.checkbox("မူရင်း Background အသံထားမည်", value=True)
         if v_in and a_in and st.button("Merge Now"):
             with st.spinner("Processing..."):
-                ext = a_in.name.split(".")[-1]
-                t_v, t_a, t_o = "v.mp4", f"a.{ext}", "fin.mp4"
-                with open(t_v, "wb") as f: f.write(v_in.getbuffer())
-                with open(t_a, "wb") as f: f.write(a_in.getbuffer())
+                a_ex = a_in.name.split(".")[-1]
+                with open("v.mp4", "wb") as f: f.write(v_in.getbuffer())
+                with open(f"a.{a_ex}", "wb") as f: f.write(a_in.getbuffer())
                 try:
-                    final_a = t_a
+                    fin_a = f"a.{a_ex}"
                     if spd != "1.0x":
-                        subprocess.run(["ffmpeg", "-y", "-i", t_a, "-filter:a", f"atempo={spd.replace('x','')}", "-vn", "ap.mp3"])
-                        final_a = "ap.mp3"
+                        subprocess.run(["ffmpeg", "-y", "-i", fin_a, "-filter:a", f"atempo={spd.replace('x','')}", "-vn", "ap.mp3"])
+                        fin_a = "ap.mp3"
                     vc = VideoFileClip("v.mp4")
-                    ac = AudioFileClip(final_a)
+                    ac = AudioFileClip(fin_a)
                     if ac.duration > vc.duration: ac = ac.subclip(0, vc.duration)
                     af = CompositeAudioClip([vc.audio.volumex(0.1), ac]) if bg and vc.audio else ac
-                    vc.set_audio(af).write_videofile(t_o, fps=24, codec='libx264', audio_codec='aac')
+                    vc.set_audio(af).write_videofile("o.mp4", fps=24, codec='libx264', audio_codec='aac')
                     st.success("Done!")
-                    with open(t_o, "rb") as f: st.download_button("Download", f.read(), "merged.mp4")
+                    with open("o.mp4", "rb") as f: st.download_button("Download", f.read(), "merged.mp4")
                 except Exception as e: st.error(str(e))
-                for f in [t_v, t_a, "ap.mp3", t_o]: 
+                for f in ["v.mp4", f"a.{a_ex}", "ap.mp3", "o.mp4"]:
                     if os.path.exists(f): os.remove(f)
                         
