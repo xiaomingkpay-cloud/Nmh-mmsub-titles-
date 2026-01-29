@@ -13,32 +13,26 @@ import pandas as pd
 
 # UI Configuration
 st.set_page_config(page_title="NMH Pro Creator Tools", layout="wide")
-st.title("✨ NMH Pro Creator Tools (Database Edition)")
+st.title("✨ NMH Pro Creator Tools")
 
 # --- DATABASE CONNECTION ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_db_data():
     try:
-        # Google Sheet ထဲက data အားလုံးကို ဖတ်ယူခြင်း
         return conn.read(ttl="0s")
     except:
-        # Error တက်ခဲ့လျှင် column ခေါင်းစဉ်များဖြင့် အလွတ်တစ်ခု တည်ဆောက်ခြင်း
         return pd.DataFrame(columns=['Key', 'Daily_Count', 'Last_Time', 'Date'])
 
 def update_db_data(user_key, new_count, new_time):
     df = get_db_data()
     today_date = datetime.now().strftime("%Y-%m-%d")
-    
-    if user_key in df['Key'].values:
-        # ရှိပြီးသား User ဆိုလျှင် update လုပ်ခြင်း
-        df.loc[df['Key'] == user_key, ['Daily_Count', 'Last_Time', 'Date']] = [new_count, new_time, today_date]
+    user_key_str = str(user_key)
+    if user_key_str in df['Key'].astype(str).values:
+        df.loc[df['Key'].astype(str) == user_key_str, ['Daily_Count', 'Last_Time', 'Date']] = [new_count, new_time, today_date]
     else:
-        # User အသစ်ဆိုလျှင် row အသစ်ထည့်ခြင်း
-        new_row = pd.DataFrame([{'Key': user_key, 'Daily_Count': new_count, 'Last_Time': new_time, 'Date': today_date}])
+        new_row = pd.DataFrame([{'Key': user_key_str, 'Daily_Count': new_count, 'Last_Time': new_time, 'Date': today_date}])
         df = pd.concat([df, new_row], ignore_index=True)
-    
-    # Google Sheet ထဲသို့ ပြန်လည်သိမ်းဆည်းခြင်း
     conn.update(data=df)
 
 # --- VIP & LIMIT SYSTEM ---
@@ -48,11 +42,12 @@ with st.sidebar:
     st.header("🔑 Member Login")
     user_key_input = st.text_input("သီးသန့် VIP Key ကို ရိုက်ထည့်ပါ", type="password")
     
-    # Database မှ အချက်အလက်ရယူခြင်း
     db_df = get_db_data()
-    user_data = db_df[db_df['Key'] == user_key_input].iloc[0] if user_key_input in db_df['Key'].values else None
+    # Key မရှိလျှင် 'Free' အဖြစ် သတ်မှတ်ရန်
+    effective_key = user_key_input if user_key_input != "" else "Free_User"
     
-    # နေ့စွဲအလိုက် အကြိမ်ရေ Reset လုပ်ခြင်း (Date မတူလျှင် 0 မှ ပြန်စမည်)
+    user_data = db_df[db_df['Key'].astype(str) == str(effective_key)].iloc[0] if str(effective_key) in db_df['Key'].astype(str).values else None
+    
     today_date = datetime.now().strftime("%Y-%m-%d")
     if user_data is not None and user_data['Date'] != today_date:
         user_daily_count = 0
@@ -68,23 +63,19 @@ with st.sidebar:
     else:
         st.session_state.user_type = "Free"
         max_daily = 2
-        if user_key_input != "":
-            st.error("❌ Key မှားယွင်းနေပါသည်။")
-        else:
-            st.info("🆓 Free User အဖြစ် အသုံးပြုနေသည်။")
+        st.info("🆓 Free User အဖြစ် အသုံးပြုနေသည်။")
 
     st.divider()
     st.subheader("📊 အသုံးပြုမှု အခြေအနေ (DB)")
     st.write(f"✅ ထုတ်ပြီးသောအရေအတွက်: **{user_daily_count} / {max_daily}**")
     
-    # စောင့်ဆိုင်းချိန် တွက်ချက်ခြင်း
-    wait_time = 1800 # 30 mins
+    wait_time = 1800
     elapsed = time.time() - user_last_time
     if elapsed < wait_time and user_last_time != 0:
         rem_min = int((wait_time - elapsed) // 60)
         st.warning(f"🕒 နောက်ထပ်ထုတ်ရန်: **{rem_min} မိနစ်** စောင့်ပါ")
 
-# --- PROCESSING LOGIC (SRT & Rendering) ---
+# --- PROCESSING LOGIC ---
 def parse_time(time_str):
     time_str = time_str.replace(',', '.')
     parts = time_str.split(':')
@@ -136,7 +127,6 @@ def process_srt_video(v_path, srt_text, pos_pct):
 # --- TABS UI ---
 tab1, tab2 = st.tabs(["🌐 SRT ထုတ်ရန်", "📝 စာတန်းမြှုပ် (FREE/VIP)"])
 
-# --- Tab 1: SRT Helper (အညွှန်းစုံလင်စွာဖြင့်) ---
 with tab1:
     st.header("🌐 Gemini မှတစ်ဆင့် SRT ထုတ်ယူခြင်း")
     st.subheader("အဆင့် (၁) - စာသားကို Copy ယူပါ")
@@ -144,37 +134,30 @@ with tab1:
     col1, col2 = st.columns([3, 1])
     with col1: st.code(prompt_text, language=None)
     with col2: st.write("နှိပ်ပြီး Copy ယူပါ ☝️")
-
     st.divider()
-    st.subheader("အဆင့် (၂) - Gemini သို့သွား၍ SRT ထုတ်ယူပါ")
-    st.write("အောက်ကခလုတ်ကိုနှိပ်ပြီး Gemini မှာ SRT Copy သွားယူပါ 👇")
     st.link_button("🤖 Gemini သို့သွားရန်", "https://gemini.google.com/")
-
-    st.divider()
-    st.subheader("အဆင့် (၃) - ရလာသော SRT ကို သိမ်းဆည်းပါ")
     srt_input = st.text_area("Gemini မှရလာသော SRT စာသားများကို ဒီမှာ Paste လုပ်ပါ", height=150)
     if srt_input:
         st.download_button("📥 SRT ဖိုင်အဖြစ် သိမ်းဆည်းရန်", srt_input, file_name="subtitle.srt")
 
-# --- Tab 2: စာတန်းမြှုပ်ခြင်း (Database Limit စနစ်ဖြင့်) ---
 with tab2:
     st.header("📝 မြန်မာစာတန်းထိုး Video ထုတ်ယူခြင်း")
-    v_up, s_up = st.file_uploader("Video တင်ပါ", type=["mp4"]), st.file_uploader("SRT တင်ပါ", type=["srt"])
+    v_up = st.file_uploader("Video တင်ပါ", type=["mp4", "mov"])
+    s_up = st.file_uploader("SRT တင်ပါ", type=["srt"])
     pos = st.selectbox("စာတန်းနေရာ (%)", [10, 20, 30], index=1)
     
-    if v_up and s_up and user_key_input != "":
+    # ဖိုင်နှစ်ခုလုံး တင်ပြီးလျှင် ခလုတ်ပေါ်လာစေရန် (Indent စစ်ဆေးထားသည်)
+    if v_up and s_up:
         if user_daily_count >= max_daily:
             st.error(f"❌ သင်၏ တစ်နေ့တာ ဗီဒီယိုထုတ်ယူခွင့် ({max_daily} ကြိမ်) ပြည့်သွားပါပြီ။")
         elif elapsed < 1800 and user_last_time != 0:
             st.error(f"⏳ နာရီဝက်ခြားမှ တစ်ကြိမ် ထုတ်နိုင်ပါသည်။ နောက်ထပ် {int((1800-elapsed)//60)} မိနစ် စောင့်ပါ။")
         else:
+            # 🚀 ဤနေရာတွင် Render ခလုတ် ပေါ်လာပါမည်
             if st.button("🚀 Render Final Video"):
                 with open("in.mp4", "wb") as f: f.write(v_up.read())
                 res = process_srt_video("in.mp4", s_up.read().decode('utf-8', errors='ignore'), pos)
-                
-                # Database (Google Sheet) တွင် အချက်အလက်သွားသိမ်းခြင်း
-                update_db_data(user_key_input, user_daily_count + 1, time.time())
-                
+                update_db_data(effective_key, user_daily_count + 1, time.time())
                 st.success("✅ အောင်မြင်စွာ ထုတ်ယူပြီးပါပြီ!")
                 st.video(res)
                 st.download_button("📥 Video ဒေါင်းရန်", open(res, "rb"), file_name="NMH_Subtitled.mp4")
