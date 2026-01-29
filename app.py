@@ -52,6 +52,7 @@ if "user_info" not in st.session_state:
             ok, name, err = check_code_validity(st.secrets["users"][code])
             if ok: st.session_state.user_info = name
 
+# --- VIP LOGIN UI ---
 def show_login_ui(key):
     st.warning("🔒 VIP ကုဒ် လိုအပ်ပါသည်။")
     tk = st.text_input("Enter Token:", type="password", key=f"tk_{key}")
@@ -70,9 +71,9 @@ def show_login_ui(key):
 # ==========================================
 st.title("✨ NMH Pro Creator Tools")
 
-tab1, tab2, tab3, tab4 = st.tabs(["🌐 SRT ထုတ်ရန်", "📝 စာတန်းမြှုပ် (Free)", "🗣️ အသံထုတ်ရန် (VIP)", "🎬 Video ပေါင်းရန် (VIP)"])
+tab1, tab2, tab3, tab4 = st.tabs(["🌐 SRT ထုတ်ရန်", "📝 စာတန်းမြှုပ် (FREE/VIP)", "🗣️ အသံထုတ်ရန် (VIP)", "🎬 Video ပေါင်းရန် (VIP)"])
 
-# --- TAB 1 ---
+# --- TAB 1: SRT ---
 with tab1:
     st.header("Gemini SRT Generator")
     st.link_button("🚀 Google Gemini သို့သွားရန်", "https://gemini.google.com/")
@@ -82,14 +83,20 @@ with tab1:
         st.success("အောင်မြင်ပါသည်!")
         st.download_button("Download SRT", clean, "myanmar.srt")
 
-# --- TAB 2 (SUBTITLE POSITION & LENGTH FIX) ---
+# --- TAB 2: SUBTITLE BURNER (VIP UNLIMITED) ---
 with tab2:
-    st.header("Tab 2: စာတန်းမြှုပ်ခြင်း (Free)")
+    st.header("Tab 2: စာတန်းမြှုပ်ခြင်း")
     u_ip = get_remote_ip()
-    if u_ip not in usage_data["users"]: usage_data["users"][u_ip] = 0
-    left = 3 - usage_data["users"][u_ip]
-    if left > 0: st.info(f"✅ လက်ကျန်: {left}/3 ပုဒ်")
-    else: st.error("⛔ Limit Reached")
+    is_vip = st.session_state.user_info is not None
+    
+    # 🔥 VIP ဆိုရင် Limit မပြပါ၊ Free ဆိုရင်ပဲ ပြပါမည်
+    if is_vip:
+        st.success(f"🌟 VIP အကောင့်ဖြင့် အကန့်အသတ်မရှိ အသုံးပြုနိုင်ပါသည်: {st.session_state.user_info}")
+    else:
+        if u_ip not in usage_data["users"]: usage_data["users"][u_ip] = 0
+        left = 3 - usage_data["users"][u_ip]
+        if left > 0: st.info(f"✅ Free လက်ကျန်: {left}/3 ပုဒ် (VIP ကုဒ်ရှိလျှင် Login ဝင်၍ Unlimited သုံးပါ)")
+        else: st.error("⛔ Limit Reached (VIP ကုဒ်ဖြင့် Login ဝင်မှသာ ဆက်သုံးနိုင်ပါမည်)")
 
     v_file = st.file_uploader("Video တင်ပါ", type=["mp4", "mov"], key="t2_v")
     s_file = st.file_uploader("SRT တင်ပါ", type=["srt"], key="t2_s")
@@ -98,33 +105,26 @@ with tab2:
         subs = pysubs2.load(s_path, encoding="utf-8")
         clips = []
         is_v = v_h > v_w
-        
-        # 🔥 FIX: 16:9 ratio အတွက် စာလုံးအရေအတွက်ကို ၅၀ လုံးသို့ လျှော့ချထားပါသည်
-        # အမြင့်သတ်မှတ်ချက်များ- 9:16 = 35% (0.65), 16:9 = 40% (0.60)
         wrap, pos, f_div = (35, 0.65, 18) if is_v else (50, 0.60, 22)
-        
         font = ImageFont.truetype(f_path, int(v_w / f_div))
-        
         for line in subs:
             if not line.text.strip(): continue
             txt = textwrap.fill(line.text.replace("\\N", " "), width=wrap)
-            
             box_w, box_h = int(v_w * 0.98), int(v_h * 0.60)
             img = Image.new('RGBA', (box_w, box_h), (0,0,0,0))
             draw = ImageDraw.Draw(img)
-            
             bbox = draw.textbbox((box_w/2, box_h/2), txt, font=font, anchor="mm", align="center")
             pad = 18
             draw.rectangle([bbox[0]-pad, bbox[1]-pad, bbox[2]+pad, bbox[3]+pad], fill=(0, 0, 0, 160))
-            
             draw.text((box_w/2, box_h/2), txt, font=font, fill="white", stroke_width=2, stroke_fill="black", anchor="mm", align="center")
-            
-            c = ImageClip(np.array(img)).set_start(line.start/1000).set_duration((line.end-line.start)/1000)
-            c = c.set_position(('center', pos), relative=True)
+            c = ImageClip(np.array(img)).set_start(line.start/1000).set_duration((line.end-line.start)/1000).set_position(('center', pos), relative=True)
             clips.append(c)
         return clips
 
-    if left > 0 and v_file and s_file and st.button("စာတန်းမြှုပ်မည်", key="t2_btn"):
+    # 🔥 VIP ဖြစ်ရင် သုံးခွင့်ပေးမယ်၊ Free ဖြစ်ရင် Limit ကျန်မှ သုံးခွင့်ပေးမယ်
+    can_use = is_vip or (not is_vip and usage_data["users"][u_ip] < 3)
+    
+    if can_use and v_file and s_file and st.button("စာတန်းမြှုပ်မည်", key="t2_btn"):
         with st.spinner("Processing..."):
             with open("t_v.mp4", "wb") as f: f.write(v_file.getbuffer())
             with open("t_s.srt", "wb") as f: f.write(s_file.getbuffer())
@@ -132,37 +132,25 @@ with tab2:
                 vid = VideoFileClip("t_v.mp4")
                 final = CompositeVideoClip([vid] + make_subs("t_s.srt", vid.w, vid.h, "myanmar_font.ttf"))
                 final.write_videofile("o.mp4", fps=24, codec='libx264', audio_codec='aac')
-                usage_data["users"][u_ip] += 1
+                if not is_vip: usage_data["users"][u_ip] += 1
                 st.success("Done!")
-                with open("o.mp4", "rb") as f: st.download_button("Download Result", f.read(), "subbed.mp4")
+                with open("o.mp4", "rb") as f: st.download_button("Download", f.read(), "subbed.mp4")
             except Exception as e: st.error(str(e))
             for f in ["t_v.mp4", "t_s.srt", "o.mp4"]:
                 if os.path.exists(f): os.remove(f)
 
-# --- TAB 3 (လမ်းညွှန်ချက် အပြည့်အစုံ) ---
+# --- TAB 3: AUDIO ---
 with tab3:
     st.header("Tab 3: အသံထုတ်လုပ်နည်း")
     if not st.session_state.user_info: show_login_ui("t3")
     else:
         st.success(f"✅ VIP အကောင့်: {st.session_state.user_info}")
         col1, col2 = st.columns(2)
-        with col1:
-            st.info("**👨 ကျားအသံ (Male):**\n* Charon (အသံနက်)\n* Orion (စကားပြောသွက်)\n* Puck (လူငယ်သံ)")
-        with col2:
-            st.warning("**👩 မအသံ (Female):**\n* Nova (တက်ကြွ)\n* Shimmer (တည်ငြိမ်)\n* Aoede (အသံပါး)")
-        
-        st.write("---")
-        st.markdown("### 📝 လမ်းညွှန်ချက်:")
-        st.markdown("""
-        1. အောက်ပါ **"Go to Google AI Studio"** ကို နှိပ်ပါ။
-        2. **"Turn text into audio with Gemini"** (မိုက်ကရိုဖုန်းပုံစံ) ကို နှိပ်ပါ။
-        3. ညာဘက်ရှိ **Speaker type** တွင် **"Single speaker"** ကို အရင်ရွေးပါ။
-        4. ထို့နောက် **Voice** တွင် မိမိနှစ်သက်ရာအသံကို ရွေးပါ။
-        5. စာသားများထည့်ပြီး **Generate** လုပ်ပါ။ ဒေါင်းလုဒ်ဆွဲပြီး **Tab 4** တွင် သုံးပါ။
-        """)
+        with col1: st.info("**👨 ကျားအသံ:**\n* Charon, Orion, Puck")
+        with col2: st.warning("**👩 မအသံ:**\n* Nova, Shimmer, Aoede")
         st.link_button("🚀 Go to Google AI Studio", "https://aistudio.google.com/")
 
-# --- TAB 4 ---
+# --- TAB 4: MERGE ---
 with tab4:
     st.header("Tab 4: Video နှင့် အသံဖိုင် ပေါင်းစပ်ခြင်း")
     if not st.session_state.user_info: show_login_ui("t4")
