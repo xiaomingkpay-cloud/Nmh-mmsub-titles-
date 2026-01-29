@@ -7,7 +7,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 # UI Configuration
 st.set_page_config(page_title="NMH Pro Creator Tools", layout="wide")
-st.title("✨ NMH Pro Creator Tools (Final Fix)")
+st.title("✨ NMH Pro Creator Tools")
 
 tab1, tab2 = st.tabs(["🌐 SRT ထုတ်ရန်", "📝 စာတန်းမြှုပ် (FREE/VIP)"])
 
@@ -20,34 +20,30 @@ with tab1:
         st.download_button("📥 SRT ဖိုင်အဖြစ် ဒေါင်းလုဒ်ဆွဲရန်", srt_input, file_name="subtitle.srt")
 
 # --- Tab 2: စာတန်းမြှုပ်ခြင်း Logic ---
-def process_video_final(video_in, srt_in):
+def process_video_final(video_in):
     cap = cv2.VideoCapture(video_in)
     fps = cap.get(cv2.CAP_PROP_FPS)
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     
-    temp_output = 'temp_render.mp4'
+    temp_render = 'temp_render.mp4'
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(temp_output, fourcc, fps, (width, height))
+    out = cv2.VideoWriter(temp_render, fourcc, fps, (width, height))
     
     progress_bar = st.progress(0)
-    status_txt = st.empty()
-
     for i in range(total_frames):
         ret, frame = cap.read()
         if not ret: break
         out.write(frame)
-        prog = (i + 1) / total_frames
-        progress_bar.progress(prog)
-        status_txt.text(f"Rendering: {int(prog*100)}%")
+        progress_bar.progress((i + 1) / total_frames)
 
     cap.release()
     out.release()
 
     final_output = 'NMH_Final.mp4'
-    # Browser ကြည့်လို့ရအောင် encoding ပြောင်းခြင်း
-    subprocess.call(['ffmpeg', '-y', '-i', temp_output, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', final_output])
+    # ffmpeg သုံး၍ browser format ပြောင်းခြင်း
+    subprocess.call(['ffmpeg', '-y', '-i', temp_render, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', final_output])
     return final_output
 
 with tab2:
@@ -61,16 +57,10 @@ with tab2:
             with open("input_video.mp4", "wb") as f:
                 f.write(v_file.read())
             
-            result_path = process_video_final("input_video.mp4", s_file)
+            result_path = process_video_final("input_video.mp4")
             st.success("✅ အောင်မြင်စွာ Render ပြီးပါပြီ!")
             
-            # Video နှင့် Download ခလုတ် ပြသခြင်း
             st.video(result_path)
             with open(result_path, "rb") as file:
-                st.download_button(
-                    label="📥 ဗီဒီယိုကို ဒေါင်းလုဒ်ဆွဲရန်",
-                    data=file,
-                    file_name="NMH_Subtitled.mp4",
-                    mime="video/mp4"
-                )
+                st.download_button("📥 ဗီဒီယိုကို ဒေါင်းလုဒ်ဆွဲရန်", file, file_name="NMH_Subtitled.mp4", mime="video/mp4")
                 
