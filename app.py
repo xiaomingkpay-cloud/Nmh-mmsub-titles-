@@ -10,20 +10,31 @@ from datetime import timedelta
 st.set_page_config(page_title="NMH Pro Creator Tools", layout="wide")
 st.title("✨ NMH Pro Creator Tools (Final Fixed)")
 
-# --- SRT Parsing Logic ---
+# --- SRT Parsing Logic (ပိုမိုကောင်းမွန်အောင် ပြင်ဆင်ထားသည်) ---
 def parse_srt(srt_string):
     subs = []
-    pattern = r'(\d+)\n(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\n((?:.*\n?)*?)(?=\n\n|\Z)'
-    matches = re.findall(pattern, srt_string)
-    for m in matches:
-        start_time = parse_time(m[1])
-        end_time = parse_time(m[2])
-        subs.append({'start': start_time, 'end': end_time, 'text': m[3].strip()})
+    # SRT format ကို ပိုမိုတိကျစွာ ခွဲခြားခြင်း
+    blocks = re.split(r'\n\s*\n', srt_string.strip())
+    for block in blocks:
+        lines = block.split('\n')
+        if len(lines) >= 3:
+            time_line = lines[1]
+            content = " ".join(lines[2:])
+            times = time_line.split(' --> ')
+            if len(times) == 2:
+                start_time = parse_time(times[0].strip())
+                end_time = parse_time(times[1].strip())
+                subs.append({'start': start_time, 'end': end_time, 'text': content})
     return subs
 
 def parse_time(time_str):
-    h, m, s = time_str.replace(',', ':').split(':')
-    return timedelta(hours=int(h), minutes=int(m), seconds=int(s)/1000 + int(s.split('.')[0] if '.' in s else s))
+    # အချိန်ပုံစံ အမျိုးမျိုးကို လက်ခံနိုင်ရန် ပြင်ဆင်ခြင်း
+    time_str = time_str.replace(',', '.')
+    parts = time_str.split(':')
+    if len(parts) == 3:
+        h, m, s = parts
+        return timedelta(hours=int(h), minutes=int(m), seconds=float(s))
+    return timedelta(0)
 
 # --- Video Processing Function ---
 def process_srt_video(v_path, srt_text):
@@ -37,7 +48,6 @@ def process_srt_video(v_path, srt_text):
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     out = cv2.VideoWriter(temp_v, fourcc, fps, (w, h))
     
-    # Video အမြင့်ပေါ်မူတည်ပြီး Font size ချိန်ခြင်း
     font_size = int(h / 15)
     try:
         font = ImageFont.truetype("myanmar_font.ttf", font_size)
@@ -61,22 +71,23 @@ def process_srt_video(v_path, srt_text):
         if active_text:
             img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             draw = ImageDraw.Draw(img)
-            # စာသားနေရာ ချိန်ညှိခြင်း (ဗဟိုအောက်ခြေ)
             bbox = draw.textbbox((0, 0), active_text, font=font)
             text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
-            # Stroke (စာသားဘောင်အနက်) ထည့်ခြင်း
+            # စာသားကို အလယ်ဗဟို အောက်ခြေတွင် ထားခြင်း
             draw.text(((w - text_w)//2, h - text_h - 60), active_text, font=font, fill=(255, 255, 255), stroke_width=2, stroke_fill=(0,0,0))
             frame = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
             
         out.write(frame)
-        prog_bar.progress((i + 1) / total_frames)
-        status_txt.text(f"Rendering: {int(((i+1)/total_frames)*100)}%")
+        if i % 10 == 0: # Update progress every 10 frames to save performance
+            prog = (i + 1) / total_frames
+            prog_bar.progress(prog)
+            status_txt.text(f"Rendering: {int(prog*100)}%")
 
     cap.release()
     out.release()
 
-    # Audio ပြန်ပေါင်းခြင်း (Final Output)
     final_v = "NMH_Subtitled_Final.mp4"
+    # Audio ပြန်ပေါင်းခြင်း (FFmpeg)
     subprocess.call(['ffmpeg', '-y', '-i', temp_v, '-i', v_path, '-map', '0:v', '-map', '1:a', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-shortest', final_v])
     return final_v
 
@@ -92,8 +103,7 @@ with tab2:
         if st.button("🚀 Render Final Video"):
             with open("in.mp4", "wb") as f: 
                 f.write(v_up.read())
-            # SRT ဖိုင်ကို Text အဖြစ်ဖတ်ခြင်း
-            srt_content = s_up.read().decode('utf-8')
+            srt_content = s_up.read().decode('utf-8', errors='ignore')
             
             result = process_srt_video("in.mp4", srt_content)
             
