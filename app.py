@@ -53,6 +53,22 @@ if "user_info" not in st.session_state:
             if ok: st.session_state.user_info = name
 
 # ==========================================
+# 🏠 SHARED UI FUNCTIONS
+# ==========================================
+def show_login_ui(key):
+    st.warning("🔒 VIP ကုဒ် လိုအပ်ပါသည်။")
+    tk = st.text_input("Enter Token:", type="password", key=f"tk_{key}")
+    if st.button("Login", key=f"ln_{key}"):
+        if tk in st.secrets.get("users", {}):
+            ok, name, err = check_code_validity(st.secrets["users"][tk])
+            if ok:
+                usage_data["bindings"][tk] = get_remote_ip()
+                st.session_state.user_info = name
+                st.rerun()
+            else: st.error(err)
+        else: st.error("Code မှားယွင်းနေပါသည်။")
+
+# ==========================================
 # 🏠 MAIN TABS
 # ==========================================
 st.title("✨ NMH Pro Creator Tools")
@@ -69,7 +85,7 @@ with tab1:
         st.success("အောင်မြင်ပါသည်!")
         st.download_button("Download SRT", clean, "myanmar.srt")
 
-# --- TAB 2: SUBTITLE BURNER (FULL VISIBILITY) ---
+# --- TAB 2: SUBTITLE BURNER (FIXED FOR 16:9) ---
 with tab2:
     st.header("Tab 2: စာတန်းမြှုပ်ခြင်း (Free)")
     user_ip = get_remote_ip()
@@ -85,16 +101,24 @@ with tab2:
         subs = pysubs2.load(s_path, encoding="utf-8")
         clips = []
         is_vert = v_h > v_w
-        wrap, pos, f_div = (35, 0.70, 18) if is_vert else (45, 0.72, 22)
+        # 16:9 Fix: စာလုံးရေ ၄၅ လုံး၊ နေရာ 0.75
+        wrap, pos, f_div = (35, 0.70, 18) if is_vert else (45, 0.75, 22)
         font = ImageFont.truetype(f_path, int(v_w / f_div))
+        
         for line in subs:
             if not line.text.strip(): continue
             txt = textwrap.fill(line.text.replace("\\N", " "), width=wrap)
-            box_w, box_h = int(v_w * 0.95), int(v_h * 0.55)
+            
+            # 🔥 BOX FIX: စာတန်းမပြတ်အောင် Box Height ကို ၆၀% အထိ တိုးလိုက်ပါသည်
+            box_w, box_h = int(v_w * 0.95), int(v_h * 0.60)
             img = Image.new('RGBA', (box_w, box_h), (0,0,0,0))
             draw = ImageDraw.Draw(img)
-            draw.text((box_w/2, box_h/2), txt, font=font, fill="white", stroke_width=4, stroke_fill="black", anchor="mm", align="center")
-            c = ImageClip(np.array(img)).set_start(line.start/1000).set_duration((line.end-line.start)/1000).set_position(('center', pos), relative=True)
+            
+            draw.text((box_w/2, box_h/2), txt, font=font, fill="white", 
+                      stroke_width=4, stroke_fill="black", anchor="mm", align="center")
+            
+            c = ImageClip(np.array(img)).set_start(line.start/1000).set_duration((line.end-line.start)/1000)
+            c = c.set_position(('center', pos), relative=True)
             clips.append(c)
         return clips
 
@@ -107,27 +131,13 @@ with tab2:
                 final = CompositeVideoClip([vid] + make_subs("temp_s.srt", vid.w, vid.h, "myanmar_font.ttf"))
                 final.write_videofile("out.mp4", fps=24, codec='libx264', audio_codec='aac')
                 usage_data["users"][user_ip] += 1
-                st.success("အောင်မြင်ပါသည်!")
+                st.success("Done!")
                 with open("out.mp4", "rb") as f: st.download_button("Download", f.read(), "subbed.mp4")
             except Exception as e: st.error(str(e))
             for f in ["temp_v.mp4", "temp_s.srt", "out.mp4"]: 
                 if os.path.exists(f): os.remove(f)
 
-# --- VIP LOGIN UI ---
-def show_login_ui(key):
-    st.warning("🔒 VIP ကုဒ် လိုအပ်ပါသည်။")
-    tk = st.text_input("Enter Token:", type="password", key=f"tk_{key}")
-    if st.button("Login", key=f"ln_{key}"):
-        if tk in st.secrets.get("users", {}):
-            ok, name, err = check_code_validity(st.secrets["users"][tk])
-            if ok:
-                usage_data["bindings"][tk] = get_remote_ip()
-                st.session_state.user_info = name
-                st.rerun()
-            else: st.error(err)
-        else: st.error("Code မှားယွင်းနေပါသည်။")
-
-# --- TAB 3: AUDIO (FULL INFO) ---
+# --- TAB 3: AUDIO GUIDE ---
 with tab3:
     st.header("Tab 3: အသံထုတ်လုပ်နည်း")
     if not st.session_state.user_info:
@@ -136,18 +146,11 @@ with tab3:
         st.success(f"✅ VIP အကောင့်: {st.session_state.user_info}")
         col1, col2 = st.columns(2)
         with col1:
-            st.info("**👨 ကျားအသံ (Male):**\n* Charon (အသံနက်)\n* Orion (တည်ငြိမ်)\n* Puck (လူငယ်သံ)")
+            st.info("**👨 ကျားအသံ (Male):**\n* Charon, Orion, Puck")
         with col2:
-            st.warning("**👩 မအသံ (Female):**\n* Nova (တက်ကြွ)\n* Shimmer (တည်ငြိမ်)\n* Aoede (အသံပါး)")
+            st.warning("**👩 မအသံ (Female):**\n* Nova, Shimmer, Aoede")
         st.write("---")
-        st.markdown("### 📝 အသံထုတ်ရန် လမ်းညွှန်:")
-        st.markdown("""
-        1. **"Go to Google AI Studio"** ကို နှိပ်ပါ။
-        2. **"Turn text into audio with Gemini"** ကဒ်ကို နှိပ်ပါ။
-        3. Speaker type တွင် **"Single speaker"** ကို အရင်ရွေးပါ။
-        4. Voice တွင် မိမိနှစ်သက်ရာအသံကို ရွေးပါ။
-        5. စာသားများထည့်ပြီး **Generate** လုပ်ပါ။ ဒေါင်းလုဒ်ဆွဲပြီး **Tab 4** တွင် သုံးပါ။
-        """)
+        st.markdown("### 📝 လမ်းညွှန်:\n1. Google AI Studio သွားပါ။\n2. 'Turn text into audio' ကဒ်ကို နှိပ်ပါ။\n3. **'Single speaker'** ကို အရင်ရွေးပါ။\n4. အသံရွေး၊ စာထည့်ပြီး Generate လုပ်ပါ။")
         st.link_button("🚀 Go to Google AI Studio", "https://aistudio.google.com/")
 
 # --- TAB 4: MERGE (CUSTOM SPEED: 0.9x - 1.3x) ---
@@ -162,24 +165,19 @@ with tab4:
         v_in = st.file_uploader("Video ရွေးပါ", type=["mp4", "mov"], key="t4_v")
         a_in = st.file_uploader("Audio ရွေးပါ", type=None, key="t4_a")
         
-        # 🔥 Speed Slider 0.9x မှ 1.3x သို့ ပြင်ဆင်ထားပါသည်
-        spd = st.select_slider("အသံ အနှေး/အမြန် (Audio Speed):", 
-                               options=["0.9x", "1.0x", "1.1x", "1.2x", "1.3x"], 
-                               value="1.0x") 
-        
+        spd = st.select_slider("အသံ အနှေး/အမြန်:", options=["0.9x", "1.0x", "1.1x", "1.2x", "1.3x"], value="1.0x")
         bg = st.checkbox("မူရင်း Background အသံထားမည်", value=True)
         
         if v_in and a_in and st.button("Merge Now"):
-            with st.spinner("ပေါင်းစပ်နေပါသည်..."):
-                a_ext = a_in.name.split(".")[-1]
-                t_v, t_a, t_o = "v.mp4", f"a.{a_ext}", "fin.mp4"
+            with st.spinner("Processing..."):
+                ext = a_in.name.split(".")[-1]
+                t_v, t_a, t_o = "v.mp4", f"a.{ext}", "fin.mp4"
                 with open(t_v, "wb") as f: f.write(v_in.getbuffer())
                 with open(t_a, "wb") as f: f.write(a_in.getbuffer())
                 try:
                     final_a = t_a
                     if spd != "1.0x":
-                        rate = spd.replace('x','')
-                        subprocess.run(["ffmpeg", "-y", "-i", t_a, "-filter:a", f"atempo={rate}", "-vn", "ap.mp3"])
+                        subprocess.run(["ffmpeg", "-y", "-i", t_a, "-filter:a", f"atempo={spd.replace('x','')}", "-vn", "ap.mp3"])
                         final_a = "ap.mp3"
                     vc = VideoFileClip(t_v)
                     ac = AudioFileClip(final_a)
