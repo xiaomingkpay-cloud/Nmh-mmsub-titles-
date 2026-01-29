@@ -43,6 +43,7 @@ def check_code_validity(user_value):
         except: return True, user_value, None
     return True, user_value, None
 
+# Auto Login Check
 if "user_info" not in st.session_state:
     st.session_state.user_info = None
     current_ip = get_remote_ip()
@@ -65,9 +66,11 @@ def show_login_ui(key):
         else: st.error("Code မှားယွင်းနေပါသည်။")
 
 # ==========================================
-# 🏠 TOP BANNER
+# 🏠 TOP CREATOR BANNER WITH SOCIAL BUTTONS
 # ==========================================
 st.title("✨ NMH Pro Creator Tools")
+
+# 👨‍💻 Creator Social Buttons
 col_h1, col_h2 = st.columns([2, 1.5])
 with col_h1:
     st.markdown("### 👨‍💻 Developed by Naing Min Htet")
@@ -75,33 +78,49 @@ with col_h1:
 with col_h2:
     st.link_button("🔵 Facebook Page", "https://www.facebook.com/share/1aavUJzZ9f/")
     st.link_button("✈️ Telegram Contact", "https://t.me/xiaoming2025nmx")
+
+st.info("🌟 VIP အကောင့်ဝယ်ယူလိုပါက အထက်ပါ Link များမှတစ်ဆင့် ဆက်သွယ်နိုင်ပါသည်။")
 st.markdown("---")
 
+# ==========================================
+# 🏠 MAIN TABS
+# ==========================================
 tab1, tab2, tab3, tab4 = st.tabs(["🌐 SRT ထုတ်ရန်", "📝 စာတန်းမြှုပ် (FREE/VIP)", "🗣️ အသံထုတ်ရန် (VIP)", "🎬 Video ပေါင်းရန် (VIP)"])
 
-# --- TAB 1 ---
+# --- TAB 1: SRT GENERATOR ---
 with tab1:
     st.header("Gemini SRT Generator")
+    
     st.markdown("### 📝 SRT ထုတ်ယူပုံ လမ်းညွှန်:")
+    st.markdown("""
+    1. အောက်ပါအကွက်ထဲမှ စာသားဘေးရှိ **Copy (ပုံလေး)** ကို နှိပ်ပါ။
+    2. ထို့နောက် **"Google Gemini သို့သွားရန်"** ကို နှိပ်ပြီး Gemini ထဲတွင် Paste လုပ်ပါ။
+    """)
+    
+    # Error မတက်အောင် st.code ကို အသုံးပြုထားပါသည်
     st.code("Myanmar စာတန်ထိုး srt ထုတ်ပေးပါ", language=None)
+    
     st.link_button("🚀 Google Gemini သို့သွားရန်", "https://gemini.google.com/")
+    
     srt_ta = st.text_area("Gemini မှ ရလာသော SRT စာသားများကို ဒီမှာထည့်ပါ:", height=200, key="t1_ta")
     if srt_ta and st.button("SRT အဖြစ် ပြောင်းမည်", key="t1_btn"):
         clean = srt_ta.replace("```srt", "").replace("```", "").strip()
-        st.success("Done!")
-        st.download_button("Download SRT", clean, "myanmar.srt")
+        st.success("အောင်မြင်ပါသည်!")
+        st.download_button("Download SRT ဖိုင်ရယူရန်", clean, "myanmar.srt")
 
-# --- TAB 2 (SPEED OPTIMIZED) ---
+# --- TAB 2: SUBTITLE BURNER ---
 with tab2:
     st.header("Tab 2: စာတန်းမြှုပ်ခြင်း")
     u_ip = get_remote_ip()
     is_vip = st.session_state.user_info is not None
-    if is_vip: st.success(f"🌟 VIP အကောင့်: {st.session_state.user_info}")
+    
+    if is_vip:
+        st.success(f"🌟 VIP အကောင့်: {st.session_state.user_info} (Unlimited သုံးနိုင်ပါသည်)")
     else:
         if u_ip not in usage_data["users"]: usage_data["users"][u_ip] = 0
         left = 3 - usage_data["users"][u_ip]
         if left > 0: st.info(f"✅ Free လက်ကျန်: {left}/3 ပုဒ်")
-        else: st.error("⛔ Limit Reached")
+        else: st.error("⛔ Daily Limit Reached (VIP Login ဝင်ပါ)")
 
     v_file = st.file_uploader("Video တင်ပါ", type=["mp4", "mov"], key="t2_v")
     s_file = st.file_uploader("SRT တင်ပါ", type=["srt"], key="t2_s")
@@ -110,6 +129,7 @@ with tab2:
         subs = pysubs2.load(s_path, encoding="utf-8")
         clips = []
         is_v = v_h > v_w
+        # Ratio & Position Settings
         wrap, pos, f_div = (35, 0.65, 18) if is_v else (50, 0.60, 22)
         font = ImageFont.truetype(f_path, int(v_w / f_div))
         for line in subs:
@@ -126,44 +146,58 @@ with tab2:
             clips.append(c)
         return clips
 
-    if (is_vip or usage_data["users"][u_ip] < 3) and v_file and s_file and st.button("စာတန်းမြှုပ်မည်", key="t2_btn"):
-        with st.spinner("မြန်မြန်ဆန်ဆန် ပေါင်းစပ်ပေးနေပါသည်..."):
+    can_use = is_vip or (not is_vip and usage_data["users"][u_ip] < 3)
+    if can_use and v_file and s_file and st.button("စာတန်းမြှုပ်မည်", key="t2_btn"):
+        with st.spinner("Processing..."):
             with open("t_v.mp4", "wb") as f: f.write(v_file.getbuffer())
             with open("t_s.srt", "wb") as f: f.write(s_file.getbuffer())
             try:
                 vid = VideoFileClip("t_v.mp4")
                 final = CompositeVideoClip([vid] + make_subs("t_s.srt", vid.w, vid.h, "myanmar_font.ttf"))
-                # 🔥 Optimization: threads=4 နှင့် preset='ultrafast' ထည့်သွင်းထားသည်
-                final.write_videofile("o.mp4", fps=24, codec='libx264', audio_codec='aac', threads=4, preset='ultrafast')
+                final.write_videofile("o.mp4", fps=24, codec='libx264', audio_codec='aac')
                 if not is_vip: usage_data["users"][u_ip] += 1
-                st.success("အောင်မြင်ပါသည်!")
+                st.success("Done!")
                 with open("o.mp4", "rb") as f: st.download_button("Download", f.read(), "subbed.mp4")
             except Exception as e: st.error(str(e))
             for f in ["t_v.mp4", "t_s.srt", "o.mp4"]:
                 if os.path.exists(f): os.remove(f)
 
-# --- TAB 3: AUDIO ---
+# --- TAB 3: AUDIO (INSTRUCTIONS FIXED) ---
 with tab3:
     st.header("Tab 3: အသံထုတ်လုပ်နည်း")
     if not st.session_state.user_info: show_login_ui("t3")
     else:
-        st.success(f"✅ VIP အကောင့်: {st.session_state.user_info}")
+        st.success(f"✅ VIP အကောင့်ဖြင့် ဝင်ရောက်ထားပါသည်: {st.session_state.user_info}")
+        
         col1, col2 = st.columns(2)
-        with col1: st.info("**👨 ကျားအသံ:**\n* Charon, Orion, Puck")
-        with col2: st.warning("**👩 မအသံ:**\n* Nova, Shimmer, Aoede")
-        st.markdown("### 📝 အဆင့်ဆင့်လမ်းညွှန်ချက်:")
-        st.markdown("1. AI Studio သွားပါ။\n2. 'Turn text into audio' ရွေးပါ။\n3. Voice Color ရွေးပြီး Generate လုပ်ပါ။")
+        with col1:
+            st.info("**👨 ကျားအသံ (Male Voice Color):**\n* Charon (အသံနက်)\n* Orion (စကားပြောသွက်)\n* Puck (လူငယ်သံ)")
+        with col2:
+            st.warning("**👩 မအသံ (Female Voice Color):**\n* Nova (တက်ကြွ)\n* Shimmer (တည်ငြိမ်)\n* Aoede (အသံပါး)")
+            
+        st.write("---")
+        # 🔥 Re-added Instructions for Tab 3
+        st.markdown("### 📝 အသံထုတ်ယူပုံ အဆင့်ဆင့်:")
+        st.markdown("""
+        1. အောက်ပါ **"Go to Google AI Studio"** ခလုတ်ကို နှိပ်ပါ။
+        2. မျက်နှာပြင်ရှိ **"Turn text into audio with Gemini"** ကဒ်ကို နှိပ်ပါ။
+        3. ညာဘက်ရှိ **Speaker type** တွင် **"Single speaker"** ကို အရင်ရွေးပါ။
+        4. Voice နေရာတွင် မိမိနှစ်သက်ရာ **အသံကာလာ** ကို ရွေးချယ်ပါ။
+        5. Gemini SRT မှ ရလာသောစာများကို Copy ကူးထည့်ပြီး **Generate** နှိပ်ပါ။
+        6. ဒေါင်းလုဒ်ဆွဲပြီး ရလာသောအသံဖိုင်ကို **Tab 4** တွင် Video နှင့် ပေါင်းစပ်ပါ။
+        """)
         st.link_button("🚀 Go to Google AI Studio", "https://aistudio.google.com/")
 
-# --- TAB 4 (SPEED OPTIMIZED) ---
+# --- TAB 4: MERGE ---
 with tab4:
     st.header("Tab 4: Video နှင့် အသံဖိုင် ပေါင်းစပ်ခြင်း")
     if not st.session_state.user_info: show_login_ui("t4")
     else:
         st.success(f"✅ VIP အကောင့်: {st.session_state.user_info}")
+        if st.button("Logout"): st.session_state.user_info = None; st.rerun()
         v_in = st.file_uploader("Video ရွေးပါ", type=["mp4", "mov"], key="t4_v")
         a_in = st.file_uploader("Audio ရွေးပါ", type=None, key="t4_a")
-        spd = st.select_slider("Speed:", options=["0.9x", "1.0x", "1.1x", "1.2x", "1.3x"], value="1.0x")
+        spd = st.select_slider("အသံ အနှေး/အမြန်:", options=["0.9x", "1.0x", "1.1x", "1.2x", "1.3x"], value="1.0x")
         bg = st.checkbox("မူရင်း Background အသံထားမည်", value=True)
         if v_in and a_in and st.button("Merge Now"):
             with st.spinner("Processing..."):
@@ -179,10 +213,9 @@ with tab4:
                     ac = AudioFileClip(fin_a)
                     if ac.duration > vc.duration: ac = ac.subclip(0, vc.duration)
                     af = CompositeAudioClip([vc.audio.volumex(0.1), ac]) if bg and vc.audio else ac
-                    # 🔥 Optimization: threads=4 နှင့် preset='ultrafast'
-                    vc.set_audio(af).write_videofile("o.mp4", fps=24, codec='libx264', audio_codec='aac', threads=4, preset='ultrafast')
+                    vc.set_audio(af).write_videofile("o.mp4", fps=24, codec='libx264', audio_codec='aac')
                     st.success("Done!")
-                    with open("o.mp4", "rb") as f: st.download_button("Download", f.read(), "merged.mp4")
+                    with open("o.mp4", "rb") as f: st.download_button("Download Result", f.read(), "merged.mp4")
                 except Exception as e: st.error(str(e))
                 for f in ["v.mp4", f"a.{a_ex}", "ap.mp3", "o.mp4"]:
                     if os.path.exists(f): os.remove(f)
