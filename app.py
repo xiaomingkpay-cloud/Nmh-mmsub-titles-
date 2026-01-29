@@ -66,7 +66,7 @@ def show_login_ui(key):
         else: st.error("Code မှားယွင်းနေပါသည်။")
 
 # ==========================================
-# 🏠 TOP CREATOR BANNER WITH BUTTONS
+# 🏠 TOP CREATOR BANNER WITH SOCIAL BUTTONS
 # ==========================================
 st.title("✨ NMH Pro Creator Tools")
 
@@ -87,19 +87,19 @@ st.markdown("---")
 # ==========================================
 tab1, tab2, tab3, tab4 = st.tabs(["🌐 SRT ထုတ်ရန်", "📝 စာတန်းမြှုပ် (FREE/VIP)", "🗣️ အသံထုတ်ရန် (VIP)", "🎬 Video ပေါင်းရန် (VIP)"])
 
-# --- TAB 1: SRT GENERATOR (WITH COPY BUTTON) ---
+# --- TAB 1: SRT GENERATOR (FIXED STABLE VERSION) ---
 with tab1:
     st.header("Gemini SRT Generator")
     
     st.markdown("### 📝 SRT ထုတ်ယူပုံ လမ်းညွှန်:")
     st.markdown("""
-    1. အောက်ပါ **"Myanmar SRT Copy ခလုတ်"** ကို အရင်နှိပ်ပါ။
+    1. အောက်ပါအကွက်ထဲမှ စာသားဘေးရှိ **Copy (ပုံလေး)** ကို နှိပ်ပါ။
     2. ထို့နောက် **"Google Gemini သို့သွားရန်"** ကို နှိပ်ပြီး Gemini ထဲတွင် Paste လုပ်ပါ။
     """)
     
-    # 🔥 Myanmar SRT Prompt Copy ခလုတ်
-    # st.copy_button သည် နှိပ်လိုက်လျှင် စာသားကို တန်းကော်ပီကူးပေးပါသည်
-    st.copy_button("📋 Myanmar SRT Copy ခလုတ်", "Myanmar စာတန်ထိုး srt ထုတ်ပေးပါ")
+    # 🔥 FIXED: Error မတက်ဘဲ Copy ကူးနိုင်ရန် st.code ကို အသုံးပြုလိုက်ပါသည်
+    st.code("Myanmar စာတန်ထိုး srt ထုတ်ပေးပါ", language=None)
+    
     st.link_button("🚀 Google Gemini သို့သွားရန်", "https://gemini.google.com/")
     
     srt_ta = st.text_area("Gemini မှ ရလာသော SRT စာသားများကို ဒီမှာထည့်ပါ:", height=200, key="t1_ta")
@@ -108,14 +108,14 @@ with tab1:
         st.success("အောင်မြင်ပါသည်!")
         st.download_button("Download SRT ဖိုင်ရယူရန်", clean, "myanmar.srt")
 
-# --- TAB 2: SUBTITLE BURNER ---
+# --- TAB 2: SUBTITLE BURNER (VIP UNLIMITED) ---
 with tab2:
     st.header("Tab 2: စာတန်းမြှုပ်ခြင်း")
     u_ip = get_remote_ip()
     is_vip = st.session_state.user_info is not None
     
     if is_vip:
-        st.success(f"🌟 VIP အကောင့်: {st.session_state.user_info} (Unlimited အသုံးပြုနိုင်ပါသည်)")
+        st.success(f"🌟 VIP အကောင့်: {st.session_state.user_info} (Unlimited သုံးနိုင်ပါသည်)")
     else:
         if u_ip not in usage_data["users"]: usage_data["users"][u_ip] = 0
         left = 3 - usage_data["users"][u_ip]
@@ -129,7 +129,7 @@ with tab2:
         subs = pysubs2.load(s_path, encoding="utf-8")
         clips = []
         is_v = v_h > v_w
-        # Ratio Settings
+        # Ratio & Position Settings
         wrap, pos, f_div = (35, 0.65, 18) if is_v else (50, 0.60, 22)
         font = ImageFont.truetype(f_path, int(v_w / f_div))
         for line in subs:
@@ -170,10 +170,9 @@ with tab3:
         st.success(f"✅ VIP အကောင့်ဖြင့် ဝင်ရောက်ထားပါသည်: {st.session_state.user_info}")
         col1, col2 = st.columns(2)
         with col1:
-            st.info("**👨 ကျားအသံ (Male Voice Color):**\n* Charon (အသံနက်/တည်ငြိမ်)\n* Orion (စကားပြောသွက်/တက်ကြွ)\n* Puck (လူငယ်သံ/ကြည်လင်)")
+            st.info("**👨 ကျားအသံ (Male Voice Color):**\n* Charon (အသံနက်)\n* Orion (စကားပြောသွက်)\n* Puck (လူငယ်သံ)")
         with col2:
-            st.warning("**👩 မအသံ (Female Voice Color):**\n* Nova (တက်ကြွ/ထင်ရှား)\n* Shimmer (တည်ငြိမ်/အေးချမ်း)\n* Aoede (အသံပါး/နူးညံ့)")
-        st.markdown("### 📝 အသံထုတ်ယူပုံ အဆင့်ဆင့်:\n1. Google AI Studio သွားပါ။\n2. 'Turn text into audio' ကဒ်ကို နှိပ်ပါ။\n3. 'Single speaker' ရွေးပါ။\n4. အသံရွေး၊ စာထည့်ပြီး Generate လုပ်ပါ။")
+            st.warning("**👩 မအသံ (Female Voice Color):**\n* Nova (တက်ကြွ)\n* Shimmer (တည်ငြိမ်)\n* Aoede (အသံပါး)")
         st.link_button("🚀 Go to Google AI Studio", "https://aistudio.google.com/")
 
 # --- TAB 4: MERGE ---
