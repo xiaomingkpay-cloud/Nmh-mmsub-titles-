@@ -136,10 +136,15 @@ with tab3:
         with col2: st.warning("**👩 မအသံ (Female):**\n* Nova, Shimmer, Aoede")
         st.write("---")
         st.markdown("### 📝 အသံထုတ်ရန် လမ်းညွှန်:")
-        st.markdown("1. Go to Google AI Studio.\n2. နှိပ်ပါ: 'Turn text into audio with Gemini'.\n3. ရွေးပါ: **'Single speaker'**.\n4. အသံရွေး၊ စာထည့်ပြီး Generate လုပ်ပါ။")
+        st.markdown("""
+        1. Go to Google AI Studio.
+        2. နှိပ်ပါ: 'Turn text into audio with Gemini'.
+        3. ညာဘက်အပေါ်နားရှိ Speaker type နေရာတွင် **"Single speaker"** ကို အရင်ရွေးပါ။
+        4. အသံရွေး၊ စာထည့်ပြီး Generate လုပ်ပါ။
+        """)
         st.link_button("🚀 Go to Google AI Studio", "https://aistudio.google.com/")
 
-# --- TAB 4: VIDEO & AUDIO MERGE (AUDIO FIX) ---
+# --- TAB 4: VIDEO & AUDIO MERGE (AUDIO FORMAT FIX) ---
 with tab4:
     st.header("Tab 4: Video နှင့် အသံဖိုင် ပေါင်းစပ်ခြင်း")
     if not st.session_state.user_info: login_ui("t4")
@@ -154,7 +159,7 @@ with tab4:
         
         if v_in and a_in and st.button("Merge Now"):
             with st.spinner("ပေါင်းစပ်နေပါသည်..."):
-                # 🔥 Extension ကို အလိုအလျောက် ရယူခြင်း
+                # 🔥 FIX: တင်လိုက်တဲ့ဖိုင်ရဲ့ Extension ကို အလိုအလျောက် ရယူခြင်း
                 a_ext = a_in.name.split(".")[-1]
                 t_v, t_a, t_o = "t_v.mp4", f"t_a.{a_ext}", "fin.mp4"
                 
@@ -177,7 +182,7 @@ with tab4:
                     
                     vc.set_audio(af).write_videofile(t_o, fps=24, codec='libx264', audio_codec='aac')
                     st.success("Done!")
-                    with open(t_o, "rb") as f: st.download_button("Download Video", f.read(), "merged.mp4")
+                    with open(t_o, "rb") as f: st.download_button("Download Result", f.read(), "merged.mp4")
                 except Exception as e: st.error(str(e))
                 for f in [t_v, t_a, t_o, "t_ap.mp3"]:
                     if os.path.exists(f): os.remove(f)
