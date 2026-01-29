@@ -52,7 +52,6 @@ if "user_info" not in st.session_state:
             ok, name, err = check_code_validity(st.secrets["users"][code])
             if ok: st.session_state.user_info = name
 
-# --- VIP LOGIN UI ---
 def show_login_ui(key):
     st.warning("🔒 VIP ကုဒ် လိုအပ်ပါသည်။")
     tk = st.text_input("Enter Token:", type="password", key=f"tk_{key}")
@@ -70,12 +69,14 @@ def show_login_ui(key):
 # 🏠 MAIN TABS
 # ==========================================
 st.title("✨ NMH Pro Creator Tools")
+st.markdown("---")
 
 tab1, tab2, tab3, tab4 = st.tabs(["🌐 SRT ထုတ်ရန်", "📝 စာတန်းမြှုပ် (FREE/VIP)", "🗣️ အသံထုတ်ရန် (VIP)", "🎬 Video ပေါင်းရန် (VIP)"])
 
 # --- TAB 1: SRT ---
 with tab1:
     st.header("Gemini SRT Generator")
+    st.info("💡 ဤနေရာတွင် Gemini မှရလာသော စာသားများကို SRT ဖိုင်အဖြစ် အလွယ်တကူ ပြောင်းလဲနိုင်ပါသည်။")
     st.link_button("🚀 Google Gemini သို့သွားရန်", "https://gemini.google.com/")
     srt_ta = st.text_area("Gemini မှ စာသားများကို ဒီမှာထည့်ပါ:", height=200, key="t1_ta")
     if srt_ta and st.button("SRT အဖြစ် ပြောင်းမည်", key="t1_btn"):
@@ -89,7 +90,6 @@ with tab2:
     u_ip = get_remote_ip()
     is_vip = st.session_state.user_info is not None
     
-    # 🔥 VIP ဆိုရင် Limit မပြပါ၊ Free ဆိုရင်ပဲ ပြပါမည်
     if is_vip:
         st.success(f"🌟 VIP အကောင့်ဖြင့် အကန့်အသတ်မရှိ အသုံးပြုနိုင်ပါသည်: {st.session_state.user_info}")
     else:
@@ -105,6 +105,7 @@ with tab2:
         subs = pysubs2.load(s_path, encoding="utf-8")
         clips = []
         is_v = v_h > v_w
+        # Ratio အလိုက် ညှိနှိုင်းမှုများ (16:9 = 50 chars, 40% height)
         wrap, pos, f_div = (35, 0.65, 18) if is_v else (50, 0.60, 22)
         font = ImageFont.truetype(f_path, int(v_w / f_div))
         for line in subs:
@@ -121,9 +122,7 @@ with tab2:
             clips.append(c)
         return clips
 
-    # 🔥 VIP ဖြစ်ရင် သုံးခွင့်ပေးမယ်၊ Free ဖြစ်ရင် Limit ကျန်မှ သုံးခွင့်ပေးမယ်
     can_use = is_vip or (not is_vip and usage_data["users"][u_ip] < 3)
-    
     if can_use and v_file and s_file and st.button("စာတန်းမြှုပ်မည်", key="t2_btn"):
         with st.spinner("Processing..."):
             with open("t_v.mp4", "wb") as f: f.write(v_file.getbuffer())
@@ -139,18 +138,31 @@ with tab2:
             for f in ["t_v.mp4", "t_s.srt", "o.mp4"]:
                 if os.path.exists(f): os.remove(f)
 
-# --- TAB 3: AUDIO ---
+# --- TAB 3: AUDIO (FULL INFO) ---
 with tab3:
     st.header("Tab 3: အသံထုတ်လုပ်နည်း")
     if not st.session_state.user_info: show_login_ui("t3")
     else:
-        st.success(f"✅ VIP အကောင့်: {st.session_state.user_info}")
+        st.success(f"✅ VIP အကောင့်ဖြင့် ဝင်ရောက်ထားပါသည်: {st.session_state.user_info}")
         col1, col2 = st.columns(2)
-        with col1: st.info("**👨 ကျားအသံ:**\n* Charon, Orion, Puck")
-        with col2: st.warning("**👩 မအသံ:**\n* Nova, Shimmer, Aoede")
+        with col1:
+            st.info("**👨 ကျားအသံ (Male):**\n* Charon (အသံနက်)\n* Orion (စကားပြောသွက်)\n* Puck (လူငယ်သံ)")
+        with col2:
+            st.warning("**👩 မအသံ (Female):**\n* Nova (တက်ကြွ)\n* Shimmer (တည်ငြိမ်)\n* Aoede (အသံပါး)")
+        
+        st.write("---")
+        st.markdown("### 📝 လမ်းညွှန်ချက်:")
+        st.markdown("""
+        1. အောက်ပါ **"Go to Google AI Studio"** ခလုတ်ကို နှိပ်ပါ။
+        2. မျက်နှာပြင်ရှိ **"Turn text into audio with Gemini"** (မိုက်ကရိုဖုန်းပုံစံ) ကို နှိပ်ပါ။
+        3. ညာဘက်ရှိ **Speaker type** တွင် **"Single speaker"** ကို အရင်ရွေးပါ။
+        4. ထို့နောက် **Voice** တွင် မိမိနှစ်သက်ရာအသံ (ဥပမာ - **Charon**) ကို ရွေးပါ။
+        5. Gemini SRT မှ ရလာသောစာများကို Copy ကူးထည့်ပြီး **Generate** နှိပ်ပါ။
+        6. ဒေါင်းလုဒ်ဆွဲပြီး ရလာသောအသံဖိုင်ကို **Tab 4** တွင် Video နှင့် ပေါင်းပါ။
+        """)
         st.link_button("🚀 Go to Google AI Studio", "https://aistudio.google.com/")
 
-# --- TAB 4: MERGE ---
+# --- TAB 4: MERGE (CUSTOM SPEED) ---
 with tab4:
     st.header("Tab 4: Video နှင့် အသံဖိုင် ပေါင်းစပ်ခြင်း")
     if not st.session_state.user_info: show_login_ui("t4")
@@ -177,8 +189,22 @@ with tab4:
                     af = CompositeAudioClip([vc.audio.volumex(0.1), ac]) if bg and vc.audio else ac
                     vc.set_audio(af).write_videofile("o.mp4", fps=24, codec='libx264', audio_codec='aac')
                     st.success("Done!")
-                    with open("o.mp4", "rb") as f: st.download_button("Download", f.read(), "merged.mp4")
+                    with open("o.mp4", "rb") as f: st.download_button("Download Result", f.read(), "merged.mp4")
                 except Exception as e: st.error(str(e))
                 for f in ["v.mp4", f"a.{a_ex}", "ap.mp3", "o.mp4"]:
                     if os.path.exists(f): os.remove(f)
-                        
+
+# ==========================================
+# 📢 CREATOR INFORMATION (FOOTER)
+# ==========================================
+st.markdown("---")
+col_f1, col_f2 = st.columns(2)
+with col_f1:
+    st.markdown("### 👨‍💻 Creator Info")
+    st.write("Developed by **Naing Min Htet**")
+    st.write("NMH Pro Creator Tools - Version 1.5")
+with col_f2:
+    st.markdown("### 📢 Advertisements")
+    st.info("🌟 **VIP အကောင့်ဝယ်ယူလိုပါက** Messenger မှတစ်ဆင့် ဆက်သွယ်နိုင်ပါသည်။")
+    st.warning("⚠️ ဤ Tool သည် အခမဲ့အသုံးပြုသူများအတွက် တစ်ရက် (၃) ပုဒ် ကန့်သတ်ထားပါသည်။")
+    
