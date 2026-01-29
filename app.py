@@ -52,9 +52,7 @@ if "user_info" not in st.session_state:
             ok, name, err = check_code_validity(st.secrets["users"][code])
             if ok: st.session_state.user_info = name
 
-# ==========================================
-# 🏠 SHARED UI FUNCTIONS
-# ==========================================
+# --- VIP LOGIN UI ---
 def show_login_ui(key):
     st.warning("🔒 VIP ကုဒ် လိုအပ်ပါသည်။")
     tk = st.text_input("Enter Token:", type="password", key=f"tk_{key}")
@@ -85,7 +83,7 @@ with tab1:
         st.success("အောင်မြင်ပါသည်!")
         st.download_button("Download SRT", clean, "myanmar.srt")
 
-# --- TAB 2: SUBTITLE BURNER (FIXED FOR 16:9) ---
+# --- TAB 2: SUBTITLE BURNER (POSITION & HEIGHT ADJUSTED) ---
 with tab2:
     st.header("Tab 2: စာတန်းမြှုပ်ခြင်း (Free)")
     user_ip = get_remote_ip()
@@ -101,16 +99,17 @@ with tab2:
         subs = pysubs2.load(s_path, encoding="utf-8")
         clips = []
         is_vert = v_h > v_w
-        # 16:9 Fix: စာလုံးရေ ၄၅ လုံး၊ နေရာ 0.75
-        wrap, pos, f_div = (35, 0.70, 18) if is_vert else (45, 0.75, 22)
+        # 🔥 FIX: အလျားလိုက် Video (16:9) အတွက် နေရာကို 0.65 သို့ မြှင့်တင်လိုက်ပါသည် (အပေါ်တက်လာမည်)
+        # စာလုံးရေဖြတ်တောက်မှုကို ၄၀ လုံးသို့ လျှော့ချပါသည်
+        wrap, pos, f_div = (35, 0.70, 18) if is_vert else (40, 0.65, 22)
         font = ImageFont.truetype(f_path, int(v_w / f_div))
         
         for line in subs:
             if not line.text.strip(): continue
             txt = textwrap.fill(line.text.replace("\\N", " "), width=wrap)
             
-            # 🔥 BOX FIX: စာတန်းမပြတ်အောင် Box Height ကို ၆၀% အထိ တိုးလိုက်ပါသည်
-            box_w, box_h = int(v_w * 0.95), int(v_h * 0.60)
+            # 🔥 BOX FIX: စာတန်းအပြည့်ပေါ်စေရန် Box အမြင့်ကို ညှိထားပါသည်
+            box_w, box_h = int(v_w * 0.95), int(v_h * 0.50)
             img = Image.new('RGBA', (box_w, box_h), (0,0,0,0))
             draw = ImageDraw.Draw(img)
             
@@ -123,7 +122,7 @@ with tab2:
         return clips
 
     if left > 0 and v_file and s_file and st.button("စာတန်းမြှုပ်မည်", key="t2_btn"):
-        with st.spinner("Processing..."):
+        with st.spinner("စာတန်းကို အပေါ်တင်ပေးနေပါသည်..."):
             with open("temp_v.mp4", "wb") as f: f.write(v_file.getbuffer())
             with open("temp_s.srt", "wb") as f: f.write(s_file.getbuffer())
             try:
@@ -131,33 +130,27 @@ with tab2:
                 final = CompositeVideoClip([vid] + make_subs("temp_s.srt", vid.w, vid.h, "myanmar_font.ttf"))
                 final.write_videofile("out.mp4", fps=24, codec='libx264', audio_codec='aac')
                 usage_data["users"][user_ip] += 1
-                st.success("Done!")
+                st.success("အောင်မြင်ပါသည်!")
                 with open("out.mp4", "rb") as f: st.download_button("Download", f.read(), "subbed.mp4")
             except Exception as e: st.error(str(e))
             for f in ["temp_v.mp4", "temp_s.srt", "out.mp4"]: 
                 if os.path.exists(f): os.remove(f)
 
-# --- TAB 3: AUDIO GUIDE ---
+# --- TAB 3: AUDIO ---
 with tab3:
     st.header("Tab 3: အသံထုတ်လုပ်နည်း")
-    if not st.session_state.user_info:
-        show_login_ui("t3")
+    if not st.session_state.user_info: show_login_ui("t3")
     else:
         st.success(f"✅ VIP အကောင့်: {st.session_state.user_info}")
         col1, col2 = st.columns(2)
-        with col1:
-            st.info("**👨 ကျားအသံ (Male):**\n* Charon, Orion, Puck")
-        with col2:
-            st.warning("**👩 မအသံ (Female):**\n* Nova, Shimmer, Aoede")
-        st.write("---")
-        st.markdown("### 📝 လမ်းညွှန်:\n1. Google AI Studio သွားပါ။\n2. 'Turn text into audio' ကဒ်ကို နှိပ်ပါ။\n3. **'Single speaker'** ကို အရင်ရွေးပါ။\n4. အသံရွေး၊ စာထည့်ပြီး Generate လုပ်ပါ။")
+        with col1: st.info("**👨 ကျားအသံ (Male):**\n* Charon, Orion, Puck")
+        with col2: st.warning("**👩 မအသံ (Female):**\n* Nova, Shimmer, Aoede")
         st.link_button("🚀 Go to Google AI Studio", "https://aistudio.google.com/")
 
-# --- TAB 4: MERGE (CUSTOM SPEED: 0.9x - 1.3x) ---
+# --- TAB 4: MERGE (0.9x - 1.3x) ---
 with tab4:
     st.header("Tab 4: Video နှင့် အသံဖိုင် ပေါင်းစပ်ခြင်း")
-    if not st.session_state.user_info:
-        show_login_ui("t4")
+    if not st.session_state.user_info: show_login_ui("t4")
     else:
         st.success(f"✅ VIP အကောင့်: {st.session_state.user_info}")
         if st.button("Logout"): st.session_state.user_info = None; st.rerun()
