@@ -2,15 +2,14 @@ import streamlit as st
 from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
 import os
 
-st.title("Video Subtitle Generator")
+# အရေးကြီးသည်- Windows path သတ်မှတ်ချက်များကို လုံးဝမသုံးပါနှင့်
 
-# Cloud ပေါ်မှာ ImageMagick Path သတ်မှတ်စရာမလိုပါ (packages.txt က လုပ်ပေးပါလိမ့်မယ်)
-# Windows မှာလိုမျိုး IMAGEMAGICK_BINARY path တွေ ဒီမှာ လုံးဝ မထည့်ပါနဲ့။
+st.title("Myanmar Subtitle Generator")
 
-uploaded_file = st.file_uploader("Video ဖိုင်တင်ပါ", type=["mp4", "mov"])
+uploaded_file = st.file_uploader("ဗီဒီယိုတင်ပါ", type=["mp4", "mov"])
 
 if uploaded_file:
-    # ဗီဒီယိုဖိုင်ကို ခေတ္တသိမ်းဆည်းခြင်း
+    # ဗီဒီယိုဖိုင်ကို သိမ်းဆည်းခြင်း
     with open("input_video.mp4", "wb") as f:
         f.write(uploaded_file.read())
     
@@ -21,9 +20,16 @@ if uploaded_file:
             with st.spinner('ဗီဒီယို ဖန်တီးနေသည်... ခေတ္တစောင့်ပါ'):
                 video = VideoFileClip("input_video.mp4")
                 
-                # စာတန်းထိုးထည့်ခြင်း (နမူနာ)
-                txt_clip = TextClip("Hello World", fontsize=70, color='white')
-                txt_clip = txt_clip.set_pos('center').set_duration(video.duration)
+                # မြန်မာစာ စာတန်းထိုးထည့်ခြင်း
+                # font file နာမည်ကို သင့် GitHub ထဲက 'myanmar_font.ttf' နဲ့ အညီထားပါ
+                txt_clip = TextClip(
+                    "မြန်မာစာတန်းထိုး စမ်းသပ်ခြင်း", 
+                    fontsize=50, 
+                    color='white', 
+                    font="myanmar_font.ttf"
+                )
+                
+                txt_clip = txt_clip.set_pos(('center', 'bottom')).set_duration(video.duration)
                 
                 final_video = CompositeVideoClip([video, txt_clip])
                 
@@ -42,5 +48,5 @@ if uploaded_file:
                 st.video(output_path)
                 
         except Exception as e:
-            st.error(f"Error တက်သွားပါတယ်: {e}")
+            st.error(f"Error ဖြစ်သွားပါသည်: {e}")
             
