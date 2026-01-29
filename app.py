@@ -11,7 +11,7 @@ from datetime import timedelta
 st.set_page_config(page_title="NMH Pro Creator Tools", layout="wide")
 st.title("✨ NMH Pro Creator Tools")
 
-# Tab များသတ်မှတ်ခြင်း (Tab 1 ပြန်ထည့်ပေးထားသည်)
+# Tab များသတ်မှတ်ခြင်း
 tab1, tab2 = st.tabs(["🌐 SRT ထုတ်ရန်", "📝 စာတန်းမြှုပ် (FREE/VIP)"])
 
 # --- Tab 1: SRT Helper ---
@@ -19,8 +19,7 @@ with tab1:
     st.header("🌐 Gemini မှတစ်ဆင့် SRT ထုတ်ယူခြင်း")
     st.info("ဒီဗီဒီယိုအတွက် မြန်မာ SRT ထုတ်ပေးပါ")
     st.link_button("🤖 Gemini သို့သွားရန်", "https://gemini.google.com/")
-    st.divider()
-    srt_input = st.text_area("Gemini မှရလာသော SRT စာသားများကို ဒီမှာ Paste လုပ်ပါ", height=200)
+    srt_input = st.text_area("Gemini မှရလာသော SRT စာသားများကို ဒီမှာ Paste လုပ်ပါ", height=150)
     if srt_input:
         st.download_button("📥 SRT ဖိုင်အဖြစ် ဒေါင်းလုဒ်ဆွဲရန်", srt_input, file_name="subtitle.srt")
 
@@ -55,7 +54,6 @@ def process_srt_video(v_path, srt_text):
     w, h = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     
-    # Ratio စစ်ဆေးခြင်း
     is_landscape = w > h # 16:9
     
     temp_v = "temp_render.mp4"
@@ -82,31 +80,35 @@ def process_srt_video(v_path, srt_text):
                 break
         
         if active_text:
-            # Ratio အလိုက် စာကြောင်းဖြတ်ခြင်း
-            char_limit = 50 if is_landscape else 30
+            # စာလုံးအရေအတွက်အလိုက် စာကြောင်းဖြတ်ခြင်း (Landscape: 60, Portrait: 40)
+            char_limit = 60 if is_landscape else 40
             wrapped_text = "\n".join(textwrap.wrap(active_text, width=char_limit))
             
             img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             draw = ImageDraw.Draw(img)
             
-            # စာသားနေရာချခြင်း (Landscape: 30% from bottom, Portrait: 40% from bottom)
-            margin_pct = 0.30 if is_landscape else 0.40
+            # စာသားနေရာချခြင်း (Landscape: 20% from bottom, Portrait: 40% from bottom)
+            margin_pct = 0.20 if is_landscape else 0.40
             
             bbox = draw.multiline_textbbox((0, 0), wrapped_text, font=font)
             text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
             text_x = (w - text_w) // 2
             text_y = h - int(h * margin_pct) - text_h
             
-            # နောက်ခံအမည်းရောင်ဘောင် (Padding ထည့်ထားသည်)
+            # အမည်းရောင်နောက်ခံဘောင် (Opacity ထည့်ထားသည်)
             padding = 15
-            draw.rectangle([text_x - padding, text_y - padding, text_x + text_w + padding, text_y + text_h + padding], fill=(0, 0, 0, 180))
+            overlay = Image.new('RGBA', img.size, (0,0,0,0))
+            draw_ov = ImageDraw.Draw(overlay)
+            draw_ov.rectangle([text_x - padding, text_y - padding, text_x + text_w + padding, text_y + text_h + padding], fill=(0, 0, 0, 160))
+            img = Image.alpha_composite(img.convert('RGBA'), overlay)
             
-            # စာသားရေးခြင်း
-            draw.multiline_text((text_x, text_y), wrapped_text, font=font, fill=(255, 255, 255), align="center")
-            frame = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+            # စာသားပြန်ရေးခြင်း
+            draw_final = ImageDraw.Draw(img)
+            draw_final.multiline_text((text_x, text_y), wrapped_text, font=font, fill=(255, 255, 255), align="center")
+            frame = cv2.cvtColor(np.array(img.convert('RGB')), cv2.COLOR_RGB2BGR)
             
         out.write(frame)
-        if i % 15 == 0: prog_bar.progress((i + 1) / total_frames)
+        if i % 20 == 0: prog_bar.progress((i + 1) / total_frames)
 
     cap.release()
     out.release()
