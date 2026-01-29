@@ -20,10 +20,10 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_db_data():
     try:
-        # Google Sheet ထဲက data အားလုံးကို ဖတ်ယူခြင်း
+        # Cache မသုံးဘဲ အချိန်နှင့်တပြေးညီ ဒေတာဖတ်ယူခြင်း
         return conn.read(ttl="0s")
     except Exception as e:
-        # Error တက်ခဲ့လျှင် column ခေါင်းစဉ်များဖြင့် အလွတ်တစ်ခု တည်ဆောက်ခြင်း
+        # အကယ်၍ Sheet အလွတ်ဖြစ်နေပါက Column များ တည်ဆောက်ခြင်း
         return pd.DataFrame(columns=['Key', 'Daily_Count', 'Last_Time', 'Date'])
 
 def update_db_data(user_key, new_count, new_time):
@@ -31,15 +31,14 @@ def update_db_data(user_key, new_count, new_time):
     today_date = datetime.now().strftime("%Y-%m-%d")
     user_key_str = str(user_key)
     
-    # DataFrame အဟောင်းထဲတွင် ရှိပြီးသား Key ကို ရှာဖွေခြင်း
+    # Key အဟောင်းရှိလျှင် Update လုပ်ပြီး၊ မရှိလျှင် Row အသစ်ထည့်ခြင်း
     if user_key_str in df['Key'].astype(str).values:
         df.loc[df['Key'].astype(str) == user_key_str, ['Daily_Count', 'Last_Time', 'Date']] = [new_count, new_time, today_date]
     else:
-        # Row အသစ်ထည့်ခြင်း
         new_row = pd.DataFrame([{'Key': user_key_str, 'Daily_Count': int(new_count), 'Last_Time': float(new_time), 'Date': today_date}])
         df = pd.concat([df, new_row], ignore_index=True)
     
-    # Google Sheet သို့ ပြန်လည်သိမ်းဆည်းခြင်း (Worksheet Name: Sheet1)
+    # Google Sheet သို့ Editor Permission ဖြင့် သိမ်းဆည်းခြင်း
     try:
         conn.update(data=df, worksheet="Sheet1")
     except Exception as e:
@@ -52,13 +51,12 @@ with st.sidebar:
     st.header("🔑 Member Login")
     user_key_input = st.text_input("သီးသန့် VIP Key ကို ရိုက်ထည့်ပါ", type="password")
     
-    # Database မှ အချက်အလက်ရယူခြင်း
+    # Database မှ အချက်အလက်များ တိုက်ရိုက်ဖတ်ယူခြင်း
     db_df = get_db_data()
-    # Key မရိုက်လျှင် 'Free_User' အဖြစ် သတ်မှတ်ခြင်း
     effective_key = user_key_input if user_key_input != "" else "Free_User"
     user_data = db_df[db_df['Key'].astype(str) == str(effective_key)].iloc[0] if str(effective_key) in db_df['Key'].astype(str).values else None
     
-    # နေ့စွဲအလိုက် Reset စနစ်
+    # နေ့စဉ်အကြိမ်ရေ Reset လုပ်ခြင်း (Date စစ်ဆေးမှု)
     today_date = datetime.now().strftime("%Y-%m-%d")
     if user_data is not None and str(user_data['Date']) != today_date:
         user_daily_count = 0
@@ -77,17 +75,17 @@ with st.sidebar:
         st.info("🆓 Free User အဖြစ် အသုံးပြုနေသည်။")
 
     st.divider()
-    st.subheader("📊 အသုံးပြုမှု အခြေအနေ (Database)")
+    st.subheader("📊 အသုံးပြုမှု အခြေအနေ (DB)")
     st.write(f"✅ ထုတ်ပြီးသောအရေအတွက်: **{user_daily_count} / {max_daily}**")
     
-    # စောင့်ဆိုင်းချိန် တွက်ချက်ခြင်း
+    # Wait Timer တွက်ချက်ခြင်း
     wait_time = 1800 # 30 mins
     elapsed = time.time() - user_last_time
     if elapsed < wait_time and user_last_time != 0:
         rem_min = int((wait_time - elapsed) // 60)
         st.warning(f"🕒 နောက်ထပ်ထုတ်ရန်: **{rem_min} မိနစ်** စောင့်ပါ")
 
-# --- PROCESSING FUNCTIONS ---
+# --- SRT & RENDER FUNCTIONS ---
 def parse_time(time_str):
     time_str = time_str.replace(',', '.')
     parts = time_str.split(':')
@@ -136,7 +134,7 @@ def process_srt_video(v_path, srt_text, pos_pct):
     subprocess.call(['ffmpeg', '-y', '-i', 'temp_render.mp4', '-i', v_path, '-map', '0:v', '-map', '1:a', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-shortest', 'NMH_Final.mp4'])
     return 'NMH_Final.mp4'
 
-# --- TABS UI ---
+# --- MAIN UI TABS ---
 t1, t2 = st.tabs(["🌐 SRT ထုတ်ရန်", "📝 စာတန်းမြှုပ် (FREE/VIP)"])
 
 with t1:
@@ -154,6 +152,7 @@ with t2:
     pos = st.selectbox("စာတန်းနေရာ (%)", [10, 20, 30], index=1)
     
     if v_up and s_up:
+        # Limit စစ်ဆေးခြင်း
         if user_daily_count >= max_daily:
             st.error(f"❌ သင်၏ တစ်နေ့တာ ဗီဒီယိုထုတ်ယူခွင့် ({max_daily} ကြိမ်) ပြည့်သွားပါပြီ။")
         elif elapsed < 1800 and user_last_time != 0:
@@ -162,7 +161,10 @@ with t2:
             if st.button("🚀 Render Final Video"):
                 with open("in.mp4", "wb") as f: f.write(v_up.read())
                 res = process_srt_video("in.mp4", s_up.read().decode('utf-8', errors='ignore'), pos)
+                
+                # Database Update (Refreshed status)
                 update_db_data(effective_key, user_daily_count + 1, time.time())
+                
                 st.success("✅ အောင်မြင်စွာ ထုတ်ယူပြီးပါပြီ!")
                 st.video(res)
                 st.download_button("📥 Video ဒေါင်းရန်", open(res, "rb"), file_name="NMH_Subtitled.mp4")
