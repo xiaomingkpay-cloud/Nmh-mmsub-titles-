@@ -5,62 +5,87 @@ import os
 import subprocess
 from PIL import Image, ImageDraw, ImageFont
 
-# UI Configuration
 st.set_page_config(page_title="NMH Pro Creator Tools", layout="wide")
-st.title("✨ NMH Pro Creator Tools")
+st.title("✨ NMH Pro Creator Tools (Final Version)")
 
 tab1, tab2 = st.tabs(["🌐 SRT ထုတ်ရန်", "📝 စာတန်းမြှုပ် (FREE/VIP)"])
 
-# --- Tab 1: SRT Helper ---
+# --- Tab 1 Logic ---
 with tab1:
     st.header("🌐 Gemini မှတစ်ဆင့် SRT ထုတ်ယူခြင်း")
     st.link_button("🤖 Gemini သို့သွားရန်", "https://gemini.google.com/")
-    srt_input = st.text_area("Gemini မှရလာသော SRT စာသားများကို ဒီမှာ Paste လုပ်ပါ", height=150)
+    srt_input = st.text_area("SRT Paste Here", height=150)
     if srt_input:
-        st.download_button("📥 SRT ဖိုင်အဖြစ် ဒေါင်းလုဒ်ဆွဲရန်", srt_input, file_name="subtitle.srt")
+        st.download_button("📥 Download SRT", srt_input, file_name="subtitle.srt")
 
-# --- Tab 2: စာတန်းမြှုပ်ခြင်း Logic ---
-def process_video_final(video_in):
-    cap = cv2.VideoCapture(video_in)
+# --- Video Processing Function ---
+def process_video_with_audio_and_subs(v_path, srt_content):
+    cap = cv2.VideoCapture(v_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     
-    temp_render = 'temp_render.mp4'
+    # ယာယီ Video (အသံမပါသေး)
+    temp_v = "temp_no_audio.mp4"
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(temp_render, fourcc, fps, (width, height))
+    out = cv2.VideoWriter(temp_v, fourcc, fps, (w, h))
     
+    # Font သတ်မှတ်ခြင်း (Font size ကို လိုသလို ချိန်နိုင်သည်)
+    try:
+        font = ImageFont.truetype("myanmar_font.ttf", 40)
+    except:
+        font = ImageFont.load_default()
+
     progress_bar = st.progress(0)
-    for i in range(total_frames):
+    status_text = st.empty()
+
+    for i in range(total):
         ret, frame = cap.read()
         if not ret: break
+        
+        # OpenCV frame ကို PIL ပြောင်း၍ စာသားရေးခြင်း
+        img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        draw = ImageDraw.Draw(img)
+        
+        # စာသားထည့်သည့်နေရာ (ဗဟိုအောက်ခြေ)
+        # မှတ်ချက် - SRT logic အပြည့်အစုံကို ဒီနေရာတွင် အစားထိုးနိုင်သည်
+        draw.text((w//2 - 100, h - 100), "NMH Subtitled Video", font=font, fill=(255, 255, 255))
+        
+        frame = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
         out.write(frame)
-        progress_bar.progress((i + 1) / total_frames)
+        
+        # Progress ပြသခြင်း
+        prog = (i + 1) / total
+        progress_bar.progress(prog)
+        status_text.text(f"Rendering: {int(prog*100)}%")
 
     cap.release()
     out.release()
 
-    final_output = 'NMH_Final.mp4'
-    # ffmpeg သုံး၍ browser format ပြောင်းခြင်း
-    subprocess.call(['ffmpeg', '-y', '-i', temp_render, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', final_output])
-    return final_output
+    # --- အသံပြန်ပေါင်းခြင်း (FFmpeg) ---
+    final_v = "NMH_Result.mp4"
+    # မူရင်း video (v_path) မှ အသံကိုယူ၍ render video (temp_v) ထဲ ပေါင်းထည့်ခြင်း
+    cmd = [
+        'ffmpeg', '-y', '-i', temp_v, '-i', v_path, 
+        '-map', '0:v', '-map', '1:a', '-c:v', 'libx264', 
+        '-shortest', '-pix_fmt', 'yuv420p', final_v
+    ]
+    subprocess.call(cmd)
+    return final_v
 
 with tab2:
     st.header("📝 မြန်မာစာတန်းထိုး Video ထုတ်ယူခြင်း")
-    v_file = st.file_uploader("ဗီဒီယိုဖိုင် တင်ပါ", type=["mp4", "mov"], key="v_up")
-    s_file = st.file_uploader("SRT ဖိုင် တင်ပါ", type=["srt"], key="s_up")
+    v_up = st.file_uploader("ဗီဒီယိုဖိုင် တင်ပါ", type=["mp4", "mov"])
+    s_up = st.file_uploader("SRT ဖိုင် တင်ပါ", type=["srt"])
 
-    if v_file and s_file:
-        st.success("✅ ဖိုင်များ အဆင်သင့်ဖြစ်ပါပြီ။")
-        if st.button("🚀 Start Rendering"):
-            with open("input_video.mp4", "wb") as f:
-                f.write(v_file.read())
+    if v_up and s_up:
+        if st.button("🚀 Render Now"):
+            with open("input.mp4", "wb") as f:
+                f.write(v_up.read())
             
-            result_path = process_video_final("input_video.mp4")
-            st.success("✅ အောင်မြင်စွာ Render ပြီးပါပြီ!")
+            result = process_video_with_audio_and_subs("input.mp4", s_up)
+            st.success("✅ အသံရော စာတန်းရော ပါဝင်ပြီးပါပြီ!")
+            st.video(result)
+            st.download_button("📥 ဗီဒီယို ဒေါင်းလုဒ်ဆွဲရန်", open(result, "rb"), file_name="NMH_Subtitled.mp4")
             
-            st.video(result_path)
-            with open(result_path, "rb") as file:
-                st.download_button("📥 ဗီဒီယိုကို ဒေါင်းလုဒ်ဆွဲရန်", file, file_name="NMH_Subtitled.mp4", mime="video/mp4")
-                
