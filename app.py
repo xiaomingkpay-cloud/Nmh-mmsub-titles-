@@ -190,44 +190,30 @@ def show_login_ui(key_suffix):
         else: st.error("ကုဒ် မှားယွင်းနေပါသည်။")
 
 # ==========================================
-# TAB 3: GOOGLE AI STUDIO (FULL GUIDE)
+# TAB 3: GOOGLE AI STUDIO (UPDATED GUIDE)
 # ==========================================
 with tab3:
-    st.header("Tab 3: အသံဖိုင်ထုတ်လုပ်နည်း (Audio Generation)")
+    st.header("Tab 3: အသံဖိုင်ထုတ်လုပ်နည်း")
     if st.session_state.user_info is None:
         show_login_ui("t3")
     else:
         st.success(f"✅ VIP အကောင့်ဖြင့် ဝင်ရောက်ထားပါသည်: {st.session_state.user_info}")
         
         # --- Voice Recommendations ---
-        st.markdown("### 🔊 အသံရွေးချယ်ရန် လမ်းညွှန်")
-        
         col_m, col_f = st.columns(2)
         with col_m:
-            st.info("""
-            **👨 ယောက်ျားအသံ (Male) လိုချင်ပါက:**
-            * **Charon** (အသံနက်)
-            * **Orion** (အသံသွက်)
-            * **Puck** (လူငယ်အသံ)
-            **👉 ဒီ (၃) ခုထဲက တစ်ခုခုကို ရွေးပေးပါ။**
-            """)
+            st.info("""**👨 ယောက်ျားအသံ (Male):**\n* Charon\n* Orion\n* Puck""")
         with col_f:
-            st.warning("""
-            **👩 မိန်းမအသံ (Female) လိုချင်ပါက:**
-            * **Nova** (တက်ကြွသည်)
-            * **Shimmer** (တည်ငြိမ်သည်)
-            * **Aoede** (အသံပါး)
-            **👉 ဒီ (၃) ခုထဲက တစ်ခုခုကို ရွေးပေးပါ။**
-            """)
+            st.warning("""**👩 မိန်းမအသံ (Female):**\n* Nova\n* Shimmer\n* Aoede""")
         
         st.write("---")
         
-        # --- Step-by-Step Guide ---
-        st.markdown("### 📝 လုပ်ဆောင်ရမည့် အဆင့်ဆင့်:")
+        # --- Updated Step-by-Step Guide ---
+        st.markdown("### 📝 အသံထုတ်ရန် လမ်းညွှန် (Updated):")
         st.markdown("""
-        1. အောက်ပါ **"Go to Google AI Studio"** ခလုတ်ကို နှိပ်ပါ။
-        2. ဘယ်ဘက်ထောင့်ရှိ **Create New > Speech** ကို နှိပ်ပါ။
-        3. ညာဘက်ရှိ **Voice** နေရာတွင် အပေါ်ကပြောထားသော အသံတစ်ခုခု (ဥပမာ - **Charon** သို့မဟုတ် **Nova**) ကို ရွေးပါ။
+        1. အောက်ပါ **"Google AI Studio သို့ သွားရန်"** ခလုတ်ကို နှိပ်ပါ။
+        2. မျက်နှာပြင်တွင် **"Turn text into audio with Gemini"** ဟုရေးထားသော **မိုက်ကရိုဖုန်းပုံစံ ကဒ် (Card)** ကို ရှာပြီးနှိပ်လိုက်ပါ။
+        3. ထို့နောက် **Voice** နေရာတွင် မိမိနှစ်သက်ရာ အသံ (ဥပမာ - **Charon**) ကို ရွေးပါ။
         4. စာသားများကို Copy ကူးထည့်ပြီး **Generate** လုပ်ပါ။
         5. ပြီးလျှင် **Download** လုပ်ပြီး Tab 4 တွင် ပြန်သုံးပါ။
         """)
