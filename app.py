@@ -84,9 +84,9 @@ with tab2:
     def make_subs(s_path, v_w, v_h, f_path):
         subs = pysubs2.load(s_path, encoding="utf-8")
         clips = []
-        # Smart Ratio Fix
         is_vert = v_h > v_w
-        wrap, pos, f_div = (35, 0.70, 18) if is_vert else (55, 0.75, 22)
+        # 🔥 အလျားလိုက် Video (16:9) အတွက် ၅၀ လုံးမှာ ဖြတ်တောက်ရန် ညှိထားပါသည်
+        wrap, pos, f_div = (35, 0.70, 18) if is_vert else (50, 0.75, 22)
         font = ImageFont.truetype(f_path, int(v_w / f_div))
         
         for line in subs:
@@ -133,10 +133,25 @@ with tab3:
     if not st.session_state.user_info: login_ui("t3")
     else:
         st.success(f"✅ VIP အကောင့်: {st.session_state.user_info}")
+        
+        # အသံရွေးချယ်မှုများ
         col1, col2 = st.columns(2)
-        with col1: st.info("**👨 ကျားအသံ:**\n* Charon, Orion, Puck")
-        with col2: st.warning("**👩 မအသံ:**\n* Nova, Shimmer, Aoede")
-        st.markdown("### 📝 လမ်းညွှန်:\n1. Google AI Studio သွားပါ။\n2. 'Turn text into audio' ကဒ်ကို နှိပ်ပါ။")
+        with col1:
+            st.info("**👨 ကျားအသံ (Male):**\n* Charon (အသံနက်)\n* Orion (စကားပြောသွက်)\n* Puck (လူငယ်သံ)")
+        with col2:
+            st.warning("**👩 မအသံ (Female):**\n* Nova (တက်ကြွ)\n* Shimmer (တည်ငြိမ်)\n* Aoede (အသံပါး)")
+            
+        st.write("---")
+        
+        # လမ်းညွှန်အပြည့်အစုံ
+        st.markdown("### 📝 လမ်းညွှန်:")
+        st.markdown("""
+        1. အောက်ပါ **"Go to Google AI Studio"** ခလုတ်ကို နှိပ်ပါ။
+        2. မျက်နှာပြင်ရှိ **"Turn text into audio with Gemini"** (မိုက်ကရိုဖုန်းပုံစံ) အကွက်ကို နှိပ်ပါ။
+        3. ညာဘက်ရှိ **Voice** နေရာတွင် မိမိနှစ်သက်ရာအသံ (ဥပမာ - **Charon**) ကို ရွေးပါ။
+        4. Gemini SRT မှ ရလာသောစာများကို Copy ကူးထည့်ပြီး **Generate** နှိပ်ပါ။
+        5. ဒေါင်းလုဒ် (Download) လုပ်ပြီး ရလာသောအသံဖိုင်ကို **Tab 4** တွင် Video နှင့် ပေါင်းပါ။
+        """)
         st.link_button("🚀 Go to Google AI Studio", "https://aistudio.google.com/")
 
 # --- TAB 4: MERGE ---
@@ -169,4 +184,4 @@ with tab4:
                 except Exception as e: st.error(str(e))
                 for f in ["v.mp4", "a.mp3", "ap.mp3", "fin.mp4"]: 
                     if os.path.exists(f): os.remove(f)
-
+                        
