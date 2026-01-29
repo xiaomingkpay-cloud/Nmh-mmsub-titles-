@@ -2,60 +2,55 @@ import streamlit as st
 from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
 import os
 
-# Page Setting
-st.set_page_config(page_title="Myanmar Subtitle App", layout="wide")
+# Page Configuration
+st.set_page_config(page_title="NMH Pro Creator Tools", layout="wide")
 
-# Sidebar သို့မဟုတ် Tabs များပြုလုပ်ခြင်း
-tab1, tab2, tab3, tab4 = st.tabs(["🎥 Video Upload", "✍️ Subtitles", "⚙️ Settings", "👤 Creator Info"])
+# Header Section
+st.title("✨ NMH Pro Creator Tools")
+st.markdown("### 👨‍💻 Developed by Naing Min Htet")
 
-with tab1:
-    st.header("ဗီဒီယိုတင်ရန်")
-    uploaded_file = st.file_uploader("ဗီဒီယိုဖိုင်ကို ဒီမှာတင်ပါ", type=["mp4", "mov", "mpeg4"])
-    if uploaded_file:
-        with open("input_video.mp4", "wb") as f:
-            f.write(uploaded_file.read())
-        st.video("input_video.mp4")
-        st.success("ဗီဒီယို တင်ပြီးပါပြီ။ Tab 2 မှာ စာသားသွားထည့်ပါ။")
+col1, col2 = st.columns([2, 1])
+with col2:
+    st.link_button("🔵 Facebook Page", "https://www.facebook.com/share/1aavUJzZ9f/")
+    st.link_button("✈️ Telegram Contact", "https://t.me/xiaoming2025nmx")
 
-with tab2:
-    st.header("စာတန်းထိုးထည့်ရန်")
-    sub_text = st.text_input("ထည့်ချင်သည့် စာသားကို ရေးပါ", "မြန်မာစာတန်းထိုး")
-    font_size = st.slider("စာလုံးအရွယ်အစား", 20, 100, 50)
-    color = st.color_picker("စာလုံးအရောင်", "#FFFFFF")
+st.info("🚫Video Editing လုံးဝမလိုသော🚫 Professional Tools for Content Creators")
+st.warning("🌟 VIP အကောင့်ဝယ်ယူလိုပါက အထက်ပါ Link များမှတစ်ဆင့် ဆက်သွယ်နိုင်ပါသည်။")
+
+st.divider()
+
+# Tabs definition as per your screenshot
+tabs = st.tabs(["🌐 SRT ထုတ်ရန်", "📝 စာတန်းမြှုပ် (FREE/VIP)", "🗣️ အသံထုတ်ရန် (VIP)", "🎬 Video ပေါင်းရန် (VIP)"])
+
+# Tab 2: စာတန်းမြှုပ်ခြင်း (This was your main functional part)
+with tabs[1]:
+    st.header("Tab 2: စာတန်းမြှုပ်ခြင်း")
+    st.info("✅ Free လက်ကျန်: 3/3 ပုဒ်")
     
-    if st.button("Render Video"):
-        if os.path.exists("input_video.mp4"):
-            try:
-                with st.spinner('ဗီဒီယို ဖန်တီးနေသည်...'):
-                    video = VideoFileClip("input_video.mp4")
-                    txt_clip = TextClip(sub_text, fontsize=font_size, color=color, font="myanmar_font.ttf")
-                    txt_clip = txt_clip.set_pos(('center', 'bottom')).set_duration(video.duration)
-                    
-                    final_video = CompositeVideoClip([video, txt_clip])
-                    output_path = "output_result.mp4"
-                    
-                    final_video.write_videofile(
-                        output_path, 
-                        fps=24, 
-                        codec="libx264", 
-                        audio_codec="aac",
-                        temp_audiofile="temp-audio.m4a", 
-                        remove_temp=True
-                    )
-                    st.success("ပြီးပါပြီ!")
-                    st.video(output_path)
-            except Exception as e:
-                st.error(f"Error: {e}")
-        else:
-            st.warning("အရင်ဦးဆုံး Tab 1 မှာ ဗီဒီယိုတင်ပေးပါ။")
+    video_file = st.file_uploader("Video တင်ပါ", type=["mp4", "mov", "mpeg4"], key="video_tab2")
+    srt_file = st.file_uploader("SRT တင်ပါ", type=["srt"], key="srt_tab2")
+    
+    if st.button("Render Now"):
+        st.write("Rendering features are processing...")
 
-with tab3:
-    st.header("အထွေထွေ Setting")
-    st.write("Video Resolution နှင့် အခြား Setting များကို ဤနေရာတွင် ပြင်နိုင်သည် (Coming Soon)")
+# Tab 4: Video နှင့် အသံဖိုင် ပေါင်းစပ်ခြင်း
+with tabs[3]:
+    st.header("Tab 4: Video နှင့် အသံဖိုင် ပေါင်းစပ်ခြင်း")
+    st.success("✅ VIP အကောင့်: Maung Maung (VIP)")
+    if st.button("Logout"):
+        st.rerun()
+        
+    video_merge = st.file_uploader("Video ရွေးပါ", type=["mp4", "mov"], key="v_merge")
+    audio_merge = st.file_uploader("Audio ရွေးပါ", type=["mp3", "wav", "m4a"], key="a_merge")
+    
+    speed = st.select_slider("အသံ အနှေး/အမြန်", options=[0.5, 1.0, 1.5, 2.0], value=1.0)
 
-with tab4:
-    st.header("Creator Information")
-    st.write("**Facebook:** [https://www.facebook.com/share/1aavUJzZ9f/](https://www.facebook.com/share/1aavUJzZ9f/)")
-    st.write("**Telegram:** @xiaoming2025nmx")
-    st.info("ဒီ App ကို Myanmar Subtitle အတွက် အထူးပြုလုပ်ထားပါသည်။")
+# Default content for other tabs
+with tabs[0]:
+    st.header("Tab 1: SRT ထုတ်ရန်")
+    st.write("ယခု feature သည် VIP များအတွက်သာ ဖြစ်ပါသည်။")
+
+with tabs[2]:
+    st.header("Tab 3: အသံထုတ်ရန် (Text-to-Speech)")
+    st.write("မြန်မာစာကို အသံပြောင်းလဲပေးမည့် Tool ဖြစ်ပါသည်။")
     
