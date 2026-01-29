@@ -24,7 +24,7 @@ if 'last_render_time' not in st.session_state:
 # Streamlit Secrets ထဲမှ VIP Keys စာရင်းကို ဖတ်ယူခြင်း
 all_vip_keys = st.secrets.get("vip_keys", {}).values()
 
-# --- Sidebar UI (Limit အချက်အလက်များ ပြသရန်) ---
+# --- Sidebar UI (VIP Login & Limits Display) ---
 with st.sidebar:
     st.header("🔑 Member Login")
     user_key_input = st.text_input("သီးသန့် VIP Key ကို ရိုက်ထည့်ပါ", type="password")
@@ -49,31 +49,17 @@ with st.sidebar:
     st.write(f"👤 အမျိုးအစား: **{st.session_state.user_type}**")
     st.write(f"✅ ထုတ်ပြီးသောအရေအတွက်: **{st.session_state.daily_count} / {max_daily}**")
     
-    # လက်ကျန်အကြိမ်ရေ တွက်ချက်ခြင်း
+    # လက်ကျန်အကြိမ်ရေနှင့် စောင့်ဆိုင်းချိန်
     remaining = max_daily - st.session_state.daily_count
     st.write(f"⏳ ထုတ်ခွင့်လက်ကျန်: **{remaining if remaining > 0 else 0} ကြိမ်**")
 
-    # စောင့်ဆိုင်းရန် အချိန်ပြသခြင်း
     wait_time = 1800 # 30 mins
     elapsed = time.time() - st.session_state.last_render_time
     if elapsed < wait_time and st.session_state.last_render_time != 0:
         rem_min = int((wait_time - elapsed) // 60)
         st.warning(f"🕒 နောက်ထပ်ထုတ်ရန်: **{rem_min} မိနစ်** စောင့်ပါ")
 
-# --- LIMIT CHECK FUNCTION ---
-def check_limits():
-    max_limit = 2 if st.session_state.user_type == "Free" else 10
-    if st.session_state.daily_count >= max_limit:
-        return False, f"❌ သင်၏ တစ်နေ့တာ ဗီဒီယိုထုတ်ယူခွင့် ({max_limit} ကြိမ်) ပြည့်သွားပါပြီ။"
-    
-    elapsed = time.time() - st.session_state.last_render_time
-    if elapsed < 1800 and st.session_state.last_render_time != 0:
-        rem_min = int((1800 - elapsed) // 60)
-        return False, f"⏳ နာရီဝက်ခြားမှ တစ်ကြိမ် ထုတ်နိုင်ပါသည်။ နောက်ထပ် {rem_min} မိနစ် စောင့်ပေးပါ။"
-    
-    return True, ""
-
-# --- PROCESSING FUNCTIONS ---
+# --- PROCESSING LOGIC (Parse SRT & Render Video) ---
 def parse_time(time_str):
     time_str = time_str.replace(',', '.')
     parts = time_str.split(':')
@@ -129,24 +115,52 @@ def process_srt_video(v_path, srt_text, pos_pct):
     subprocess.call(['ffmpeg', '-y', '-i', 'temp_render.mp4', '-i', v_path, '-map', '0:v', '-map', '1:a', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-shortest', 'NMH_Final.mp4'])
     return 'NMH_Final.mp4'
 
-# --- TABS ---
-t1, t2 = st.tabs(["🌐 SRT ထုတ်ရန်", "📝 စာတန်းမြှုပ် (FREE/VIP)"])
+# --- TABS UI ---
+tab1, tab2 = st.tabs(["🌐 SRT ထုတ်ရန်", "📝 စာတန်းမြှုပ် (FREE/VIP)"])
 
-with t2:
+# --- Tab 1: SRT Helper (အညွှန်းစုံလင်စွာဖြင့်) ---
+with tab1:
+    st.header("🌐 Gemini မှတစ်ဆင့် SRT ထုတ်ယူခြင်း")
+    st.subheader("အဆင့် (၁) - စာသားကို Copy ယူပါ")
+    prompt_text = "ဒီဗီဒီယိုအတွက် မြန်မာ SRT ထုတ်ပေးပါ"
+    col1, col2 = st.columns([3, 1])
+    with col1: st.code(prompt_text, language=None) # Copy ခလုတ် ပါဝင်သည်
+    with col2: st.write("နှိပ်ပြီး Copy ယူပါ ☝️")
+
+    st.divider()
+    st.subheader("အဆင့် (၂) - Gemini သို့သွား၍ SRT ထုတ်ယူပါ")
+    st.write("အောက်ကခလုတ်ကိုနှိပ်ပြီး Gemini မှာ SRT Copy သွားယူပါ 👇")
+    st.link_button("🤖 Gemini သို့သွားရန်", "https://gemini.google.com/")
+
+    st.divider()
+    st.subheader("အဆင့် (၃) - ရလာသော SRT ကို သိမ်းဆည်းပါ")
+    srt_input = st.text_area("Gemini မှရလာသော SRT စာသားများကို ဒီမှာ Paste လုပ်ပါ", height=150)
+    if srt_input:
+        st.download_button("📥 SRT ဖိုင်အဖြစ် သိမ်းဆည်းရန်", srt_input, file_name="subtitle.srt")
+
+# --- Tab 2: စာတန်းမြှုပ်ခြင်း (Limit စနစ်ဖြင့်) ---
+with tab2:
     st.header("📝 မြန်မာစာတန်းထိုး Video ထုတ်ယူခြင်း")
     v_up, s_up = st.file_uploader("Video တင်ပါ", type=["mp4"]), st.file_uploader("SRT တင်ပါ", type=["srt"])
     pos = st.selectbox("စာတန်းနေရာ (%)", [10, 20, 30], index=1)
 
     if v_up and s_up:
-        can_run, msg = check_limits()
-        if not can_run:
-            st.error(msg)
+        # Limit စစ်ဆေးခြင်း
+        current_limit = 2 if st.session_state.user_type == "Free" else 10
+        elapsed = time.time() - st.session_state.last_render_time
+        
+        if st.session_state.daily_count >= current_limit:
+            st.error(f"❌ သင်၏ တစ်နေ့တာ ဗီဒီယိုထုတ်ယူခွင့် ({current_limit} ကြိမ်) ပြည့်သွားပါပြီ။")
+        elif elapsed < 1800 and st.session_state.last_render_time != 0:
+            st.error(f"⏳ နာရီဝက်ခြားမှ တစ်ကြိမ် ထုတ်နိုင်ပါသည်။ နောက်ထပ် {int((1800-elapsed)//60)} မိနစ် စောင့်ပါ။")
         else:
             if st.button("🚀 Render Final Video"):
                 with open("in.mp4", "wb") as f: f.write(v_up.read())
                 res = process_srt_video("in.mp4", s_up.read().decode('utf-8', errors='ignore'), pos)
+                
                 st.session_state.daily_count += 1
                 st.session_state.last_render_time = time.time()
+                
                 st.success("✅ အောင်မြင်စွာ ထုတ်ယူပြီးပါပြီ!")
                 st.video(res)
                 st.download_button("📥 Video ဒေါင်းရန်", open(res, "rb"), file_name="NMH_Subtitled.mp4")
