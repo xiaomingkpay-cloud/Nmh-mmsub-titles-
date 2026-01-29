@@ -82,7 +82,7 @@ with tab1:
         st.success("အောင်မြင်ပါသည်!")
         st.download_button("Download SRT", clean, "myanmar.srt")
 
-# --- TAB 2 (SUBTITLE POSITION FIX) ---
+# --- TAB 2 (SUBTITLE POSITION & LENGTH FIX) ---
 with tab2:
     st.header("Tab 2: စာတန်းမြှုပ်ခြင်း (Free)")
     u_ip = get_remote_ip()
@@ -99,9 +99,9 @@ with tab2:
         clips = []
         is_v = v_h > v_w
         
-        # 🔥 FIX: ညီကိုပြောတဲ့ 40% အမြင့်သတ်မှတ်ချက် (Top position = 0.60)
-        # 16:9 ဆိုရင် စာလုံး ၆၀ လုံးအထိ ထားပေးထားပါသည်
-        wrap, pos, f_div = (35, 0.65, 18) if is_v else (60, 0.60, 22)
+        # 🔥 FIX: 16:9 ratio အတွက် စာလုံးအရေအတွက်ကို ၅၀ လုံးသို့ လျှော့ချထားပါသည်
+        # အမြင့်သတ်မှတ်ချက်များ- 9:16 = 35% (0.65), 16:9 = 40% (0.60)
+        wrap, pos, f_div = (35, 0.65, 18) if is_v else (50, 0.60, 22)
         
         font = ImageFont.truetype(f_path, int(v_w / f_div))
         
@@ -109,7 +109,6 @@ with tab2:
             if not line.text.strip(): continue
             txt = textwrap.fill(line.text.replace("\\N", " "), width=wrap)
             
-            # စာကြောင်းရေအလိုက် Box အမြင့်ကို အလိုအလျောက်ညှိရန်
             box_w, box_h = int(v_w * 0.98), int(v_h * 0.60)
             img = Image.new('RGBA', (box_w, box_h), (0,0,0,0))
             draw = ImageDraw.Draw(img)
@@ -121,8 +120,6 @@ with tab2:
             draw.text((box_w/2, box_h/2), txt, font=font, fill="white", stroke_width=2, stroke_fill="black", anchor="mm", align="center")
             
             c = ImageClip(np.array(img)).set_start(line.start/1000).set_duration((line.end-line.start)/1000)
-            
-            # 🔥 စာကြောင်းတွေ အောက်ကိုဆင်းသွားစေရန် set_position ကို သုံးပါသည်
             c = c.set_position(('center', pos), relative=True)
             clips.append(c)
         return clips
@@ -137,12 +134,12 @@ with tab2:
                 final.write_videofile("o.mp4", fps=24, codec='libx264', audio_codec='aac')
                 usage_data["users"][u_ip] += 1
                 st.success("Done!")
-                with open("o.mp4", "rb") as f: st.download_button("Download", f.read(), "subbed.mp4")
+                with open("o.mp4", "rb") as f: st.download_button("Download Result", f.read(), "subbed.mp4")
             except Exception as e: st.error(str(e))
             for f in ["t_v.mp4", "t_s.srt", "o.mp4"]:
                 if os.path.exists(f): os.remove(f)
 
-# --- TAB 3 (အညွှန်နဲ့ အသံအမျိုးစား အပြည့်အစုံ) ---
+# --- TAB 3 (လမ်းညွှန်ချက် အပြည့်အစုံ) ---
 with tab3:
     st.header("Tab 3: အသံထုတ်လုပ်နည်း")
     if not st.session_state.user_info: show_login_ui("t3")
@@ -165,7 +162,7 @@ with tab3:
         """)
         st.link_button("🚀 Go to Google AI Studio", "https://aistudio.google.com/")
 
-# --- TAB 4 (Merge Fix) ---
+# --- TAB 4 ---
 with tab4:
     st.header("Tab 4: Video နှင့် အသံဖိုင် ပေါင်းစပ်ခြင်း")
     if not st.session_state.user_info: show_login_ui("t4")
