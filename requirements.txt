@@ -1,6 +1,4 @@
 streamlit
-moviepy==1.0.3
-pysubs2
-pillow
-numpy<2.0.0
-nest_asyncio
+moviepy
+pandas
+numpy
