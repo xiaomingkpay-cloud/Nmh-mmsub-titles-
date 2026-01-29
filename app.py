@@ -125,21 +125,29 @@ def login_ui(key):
             else: st.error(err)
         else: st.error("Code မှားယွင်းနေပါသည်။")
 
-# --- TAB 3: AUDIO GUIDE ---
+# --- TAB 3: AUDIO GUIDE (FULL INFO) ---
 with tab3:
     st.header("Tab 3: အသံထုတ်လုပ်နည်း")
     if not st.session_state.user_info: login_ui("t3")
     else:
         st.success(f"✅ VIP အကောင့်: {st.session_state.user_info}")
         col1, col2 = st.columns(2)
-        with col1: st.info("**👨 ကျားအသံ (Male):**\n* Charon, Orion, Puck")
-        with col2: st.warning("**👩 မအသံ (Female):**\n* Nova, Shimmer, Aoede")
+        with col1:
+            st.info("**👨 ကျားအသံ (Male):**\n* Charon (အသံနက်)\n* Orion (တည်ငြိမ်)\n* Puck (လူငယ်သံ)")
+        with col2:
+            st.warning("**👩 မအသံ (Female):**\n* Nova (တက်ကြွ)\n* Shimmer (တည်ငြိမ်)\n* Aoede (အသံပါး)")
         st.write("---")
         st.markdown("### 📝 အသံထုတ်ရန် လမ်းညွှန်:")
-        st.markdown("1. Go to Google AI Studio.\n2. နှိပ်ပါ: 'Turn text into audio with Gemini'.\n3. ရွေးပါ: **'Single speaker'**.\n4. အသံရွေး၊ စာထည့်ပြီး Generate လုပ်ပါ။")
+        st.markdown("""
+        1. အောက်ပါ **"Go to Google AI Studio"** ကို နှိပ်ပါ။
+        2. **"Turn text into audio with Gemini"** (မိုက်ကရိုဖုန်းပုံစံ) ကို နှိပ်ပါ။
+        3. Speaker type တွင် **"Single speaker"** ကို အရင်ရွေးပါ။
+        4. Voice တွင် မိမိနှစ်သက်ရာအသံ (ဥပမာ - **Charon**) ကို ရွေးပါ။
+        5. စာသားများထည့်ပြီး **Generate** လုပ်ပါ။ ဒေါင်းလုဒ်ဆွဲပြီး **Tab 4** တွင် သုံးပါ။
+        """)
         st.link_button("🚀 Go to Google AI Studio", "https://aistudio.google.com/")
 
-# --- TAB 4: VIDEO & AUDIO MERGE (AUDIO FIX) ---
+# --- TAB 4: VIDEO & AUDIO MERGE (CUSTOM SPEED) ---
 with tab4:
     st.header("Tab 4: Video နှင့် အသံဖိုင် ပေါင်းစပ်ခြင်း")
     if not st.session_state.user_info: login_ui("t4")
@@ -147,34 +155,32 @@ with tab4:
         st.success(f"✅ VIP အကောင့်: {st.session_state.user_info}")
         if st.button("Logout"): st.session_state.user_info = None; st.rerun()
         
-        # 🔥 FIX: အသံဖိုင်ရွေးတဲ့အခါ wav, m4a တွေကိုပါ လွတ်လွတ်လပ်လပ် ရွေးလို့ရအောင် type=None လုပ်ပေးထားပါတယ်
         v_in = st.file_uploader("Video ရွေးပါ", type=["mp4", "mov"], key="t4_v")
-        a_in = st.file_uploader("Audio ရွေးပါ", type=None, key="t4_a", help="MP3, WAV, M4A ဖိုင်အားလုံးကို ရွေးနိုင်ပါသည်")
+        a_in = st.file_uploader("Audio ရွေးပါ", type=None, key="t4_a")
         
-        spd = st.select_slider("အသံ အနှေး/အမြန်:", options=["0.5x", "0.75x", "1.0x", "1.25x", "1.5x", "2.0x"], value="1.0x")
+        # ⏱️ ညီကိုဖြစ်စေချင်တဲ့ Speed ပမာဏအတိအကျ ပြင်ဆင်ထားပါတယ်
+        spd = st.select_slider("အသံ အနှေး/အမြန် (Audio Speed):", 
+                               options=["0.9x", "1.0x", "1.1x", "1.2x", "1.3x"], 
+                               value="1.0x") 
+        
         bg = st.checkbox("မူရင်း Background အသံထားမည်", value=True)
         
         if v_in and a_in and st.button("Merge Now"):
             with st.spinner("ပေါင်းစပ်နေပါသည်..."):
                 a_ext = a_in.name.split(".")[-1]
                 t_v, t_a, t_o = "t_v.mp4", f"t_a.{a_ext}", "fin.mp4"
-                
                 with open(t_v, "wb") as f: f.write(v_in.getbuffer())
                 with open(t_a, "wb") as f: f.write(a_in.getbuffer())
-                
                 try:
                     final_a_path = t_a
                     if spd != "1.0x":
                         rate = spd.replace('x','')
                         subprocess.run(["ffmpeg", "-y", "-i", t_a, "-filter:a", f"atempo={rate}", "-vn", "t_ap.mp3"])
                         final_a_path = "t_ap.mp3"
-                    
                     vc = VideoFileClip(t_v)
                     ac = AudioFileClip(final_a_path)
-                    
                     if ac.duration > vc.duration: ac = ac.subclip(0, vc.duration)
                     af = CompositeAudioClip([vc.audio.volumex(0.1), ac]) if bg and vc.audio else ac
-                    
                     vc.set_audio(af).write_videofile(t_o, fps=24, codec='libx264', audio_codec='aac')
                     st.success("Done!")
                     with open(t_o, "rb") as f: st.download_button("Download Video", f.read(), "merged.mp4")
