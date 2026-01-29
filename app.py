@@ -85,10 +85,8 @@ with tab2:
         subs = pysubs2.load(s_path, encoding="utf-8")
         clips = []
         is_vert = v_h > v_w
-        # 16:9 Video Fix: ၅၀ လုံးမှာဖြတ်တောက်ပြီး အပေါ်နည်းနည်းတင်သည်
         wrap, pos, f_div = (35, 0.70, 18) if is_vert else (50, 0.75, 22)
         font = ImageFont.truetype(f_path, int(v_w / f_div))
-        
         for line in subs:
             if not line.text.strip(): continue
             txt = textwrap.fill(line.text.replace("\\N", " "), width=wrap)
@@ -127,60 +125,60 @@ def login_ui(key):
             else: st.error(err)
         else: st.error("Code မှားယွင်းနေပါသည်။")
 
-# --- TAB 3: AUDIO GUIDE (Corrected with Single Speaker) ---
+# --- TAB 3: AUDIO GUIDE ---
 with tab3:
     st.header("Tab 3: အသံထုတ်လုပ်နည်း")
     if not st.session_state.user_info: login_ui("t3")
     else:
         st.success(f"✅ VIP အကောင့်: {st.session_state.user_info}")
-        
         col1, col2 = st.columns(2)
-        with col1:
-            st.info("**👨 ကျားအသံ (Male):**\n* Charon (အသံနက်)\n* Orion (တည်ငြိမ်)\n* Puck (လူငယ်သံ)")
-        with col2:
-            st.warning("**👩 မအသံ (Female):**\n* Nova (တက်ကြွ)\n* Shimmer (တည်ငြိမ်)\n* Aoede (အသံပါး)")
-            
+        with col1: st.info("**👨 ကျားအသံ (Male):**\n* Charon, Orion, Puck")
+        with col2: st.warning("**👩 မအသံ (Female):**\n* Nova, Shimmer, Aoede")
         st.write("---")
-        
         st.markdown("### 📝 အသံထုတ်ရန် လမ်းညွှန်:")
-        st.markdown("""
-        1. အောက်ပါ **"Go to Google AI Studio"** ခလုတ်ကို နှိပ်ပါ။
-        2. မျက်နှာပြင်ရှိ **"Turn text into audio with Gemini"** (မိုက်ကရိုဖုန်းပုံစံ) အကွက်ကို နှိပ်ပါ။
-        3. ညာဘက်အပေါ်နားရှိ **Speaker type** နေရာတွင် **"Single speaker"** ကို အရင်ရွေးပါ။ **(ဒါအရေးကြီးသည်)**
-        4. ထို့နောက် **Voice** နေရာတွင် မိမိနှစ်သက်ရာအသံ (ဥပမာ - **Charon**) ကို ရွေးပါ။
-        5. Gemini SRT မှ ရလာသောစာများကို Copy ကူးထည့်ပြီး **Generate** နှိပ်ပါ။
-        6. ဒေါင်းလုဒ် (Download) လုပ်ပြီး ရလာသောအသံဖိုင်ကို **Tab 4** တွင် Video နှင့် ပေါင်းပါ။
-        """)
+        st.markdown("1. Go to Google AI Studio.\n2. နှိပ်ပါ: 'Turn text into audio with Gemini'.\n3. ရွေးပါ: **'Single speaker'**.\n4. အသံရွေး၊ စာထည့်ပြီး Generate လုပ်ပါ။")
         st.link_button("🚀 Go to Google AI Studio", "https://aistudio.google.com/")
 
-# --- TAB 4: MERGE ---
+# --- TAB 4: VIDEO & AUDIO MERGE (AUDIO FIX) ---
 with tab4:
     st.header("Tab 4: Video နှင့် အသံဖိုင် ပေါင်းစပ်ခြင်း")
     if not st.session_state.user_info: login_ui("t4")
     else:
         st.success(f"✅ VIP အကောင့်: {st.session_state.user_info}")
         if st.button("Logout"): st.session_state.user_info = None; st.rerun()
+        
         v_in = st.file_uploader("Video ရွေးပါ", type=["mp4", "mov"], key="t4_v")
         a_in = st.file_uploader("Audio ရွေးပါ", type=["mp3", "wav", "m4a"], key="t4_a")
         spd = st.select_slider("အသံ အနှေး/အမြန်:", options=["0.5x", "0.75x", "1.0x", "1.25x", "1.5x", "2.0x"], value="1.0x")
         bg = st.checkbox("မူရင်း Background အသံထားမည်", value=True)
+        
         if v_in and a_in and st.button("Merge Now"):
-            with st.spinner("Processing..."):
-                with open("v.mp4", "wb") as f: f.write(v_in.getbuffer())
-                with open("a.mp3", "wb") as f: f.write(a_in.getbuffer())
+            with st.spinner("ပေါင်းစပ်နေပါသည်..."):
+                # 🔥 Extension ကို အလိုအလျောက် ရယူခြင်း
+                a_ext = a_in.name.split(".")[-1]
+                t_v, t_a, t_o = "t_v.mp4", f"t_a.{a_ext}", "fin.mp4"
+                
+                with open(t_v, "wb") as f: f.write(v_in.getbuffer())
+                with open(t_a, "wb") as f: f.write(a_in.getbuffer())
+                
                 try:
-                    final_a = "a.mp3"
+                    final_a_path = t_a
                     if spd != "1.0x":
-                        subprocess.run(["ffmpeg", "-y", "-i", "a.mp3", "-filter:a", f"atempo={spd.replace('x','')}", "-vn", "ap.mp3"])
-                        final_a = "ap.mp3"
-                    vc = VideoFileClip("v.mp4")
-                    ac = AudioFileClip(final_a)
+                        # အသံနှုန်း ပြောင်းလဲခြင်း (FFmpeg)
+                        rate = spd.replace('x','')
+                        subprocess.run(["ffmpeg", "-y", "-i", t_a, "-filter:a", f"atempo={rate}", "-vn", "t_ap.mp3"])
+                        final_a_path = "t_ap.mp3"
+                    
+                    vc = VideoFileClip(t_v)
+                    ac = AudioFileClip(final_a_path)
+                    
                     if ac.duration > vc.duration: ac = ac.subclip(0, vc.duration)
                     af = CompositeAudioClip([vc.audio.volumex(0.1), ac]) if bg and vc.audio else ac
-                    vc.set_audio(af).write_videofile("fin.mp4", fps=24, codec='libx264', audio_codec='aac')
+                    
+                    vc.set_audio(af).write_videofile(t_o, fps=24, codec='libx264', audio_codec='aac')
                     st.success("Done!")
-                    with open("fin.mp4", "rb") as f: st.download_button("Download", f.read(), "merged.mp4")
+                    with open(t_o, "rb") as f: st.download_button("Download Video", f.read(), "merged.mp4")
                 except Exception as e: st.error(str(e))
-                for f in ["v.mp4", "a.mp3", "ap.mp3", "fin.mp4"]: 
+                for f in [t_v, t_a, t_o, "t_ap.mp3"]:
                     if os.path.exists(f): os.remove(f)
                         
