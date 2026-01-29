@@ -4,16 +4,29 @@ import numpy as np
 import os
 import subprocess
 import re
+import textwrap
 from PIL import Image, ImageDraw, ImageFont
 from datetime import timedelta
 
 st.set_page_config(page_title="NMH Pro Creator Tools", layout="wide")
-st.title("✨ NMH Pro Creator Tools (Final Fixed)")
+st.title("✨ NMH Pro Creator Tools")
 
-# --- SRT Parsing Logic (ပိုမိုကောင်းမွန်အောင် ပြင်ဆင်ထားသည်) ---
+# Tab များသတ်မှတ်ခြင်း (Tab 1 ပြန်ထည့်ပေးထားသည်)
+tab1, tab2 = st.tabs(["🌐 SRT ထုတ်ရန်", "📝 စာတန်းမြှုပ် (FREE/VIP)"])
+
+# --- Tab 1: SRT Helper ---
+with tab1:
+    st.header("🌐 Gemini မှတစ်ဆင့် SRT ထုတ်ယူခြင်း")
+    st.info("ဒီဗီဒီယိုအတွက် မြန်မာ SRT ထုတ်ပေးပါ")
+    st.link_button("🤖 Gemini သို့သွားရန်", "https://gemini.google.com/")
+    st.divider()
+    srt_input = st.text_area("Gemini မှရလာသော SRT စာသားများကို ဒီမှာ Paste လုပ်ပါ", height=200)
+    if srt_input:
+        st.download_button("📥 SRT ဖိုင်အဖြစ် ဒေါင်းလုဒ်ဆွဲရန်", srt_input, file_name="subtitle.srt")
+
+# --- SRT Parsing Logic ---
 def parse_srt(srt_string):
     subs = []
-    # SRT format ကို ပိုမိုတိကျစွာ ခွဲခြားခြင်း
     blocks = re.split(r'\n\s*\n', srt_string.strip())
     for block in blocks:
         lines = block.split('\n')
@@ -22,19 +35,17 @@ def parse_srt(srt_string):
             content = " ".join(lines[2:])
             times = time_line.split(' --> ')
             if len(times) == 2:
-                start_time = parse_time(times[0].strip())
-                end_time = parse_time(times[1].strip())
-                subs.append({'start': start_time, 'end': end_time, 'text': content})
+                try:
+                    start_time = parse_time(times[0].strip())
+                    end_time = parse_time(times[1].strip())
+                    subs.append({'start': start_time, 'end': end_time, 'text': content})
+                except: continue
     return subs
 
 def parse_time(time_str):
-    # အချိန်ပုံစံ အမျိုးမျိုးကို လက်ခံနိုင်ရန် ပြင်ဆင်ခြင်း
     time_str = time_str.replace(',', '.')
     parts = time_str.split(':')
-    if len(parts) == 3:
-        h, m, s = parts
-        return timedelta(hours=int(h), minutes=int(m), seconds=float(s))
-    return timedelta(0)
+    return timedelta(hours=int(parts[0]), minutes=int(parts[1]), seconds=float(parts[2]))
 
 # --- Video Processing Function ---
 def process_srt_video(v_path, srt_text):
@@ -44,19 +55,21 @@ def process_srt_video(v_path, srt_text):
     w, h = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     
+    # Ratio စစ်ဆေးခြင်း
+    is_landscape = w > h # 16:9
+    
     temp_v = "temp_render.mp4"
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     out = cv2.VideoWriter(temp_v, fourcc, fps, (w, h))
     
-    font_size = int(h / 15)
+    # Font ချိန်ညှိခြင်း
+    font_size = int(h / 18) if is_landscape else int(h / 25)
     try:
         font = ImageFont.truetype("myanmar_font.ttf", font_size)
     except:
         font = ImageFont.load_default()
     
     prog_bar = st.progress(0)
-    status_txt = st.empty()
-
     for i in range(total_frames):
         ret, frame = cap.read()
         if not ret: break
@@ -69,46 +82,49 @@ def process_srt_video(v_path, srt_text):
                 break
         
         if active_text:
+            # Ratio အလိုက် စာကြောင်းဖြတ်ခြင်း
+            char_limit = 50 if is_landscape else 30
+            wrapped_text = "\n".join(textwrap.wrap(active_text, width=char_limit))
+            
             img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             draw = ImageDraw.Draw(img)
-            bbox = draw.textbbox((0, 0), active_text, font=font)
+            
+            # စာသားနေရာချခြင်း (Landscape: 30% from bottom, Portrait: 40% from bottom)
+            margin_pct = 0.30 if is_landscape else 0.40
+            
+            bbox = draw.multiline_textbbox((0, 0), wrapped_text, font=font)
             text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
-            # စာသားကို အလယ်ဗဟို အောက်ခြေတွင် ထားခြင်း
-            draw.text(((w - text_w)//2, h - text_h - 60), active_text, font=font, fill=(255, 255, 255), stroke_width=2, stroke_fill=(0,0,0))
+            text_x = (w - text_w) // 2
+            text_y = h - int(h * margin_pct) - text_h
+            
+            # နောက်ခံအမည်းရောင်ဘောင် (Padding ထည့်ထားသည်)
+            padding = 15
+            draw.rectangle([text_x - padding, text_y - padding, text_x + text_w + padding, text_y + text_h + padding], fill=(0, 0, 0, 180))
+            
+            # စာသားရေးခြင်း
+            draw.multiline_text((text_x, text_y), wrapped_text, font=font, fill=(255, 255, 255), align="center")
             frame = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
             
         out.write(frame)
-        if i % 10 == 0: # Update progress every 10 frames to save performance
-            prog = (i + 1) / total_frames
-            prog_bar.progress(prog)
-            status_txt.text(f"Rendering: {int(prog*100)}%")
+        if i % 15 == 0: prog_bar.progress((i + 1) / total_frames)
 
     cap.release()
     out.release()
-
-    final_v = "NMH_Subtitled_Final.mp4"
-    # Audio ပြန်ပေါင်းခြင်း (FFmpeg)
+    
+    final_v = "NMH_Final_Video.mp4"
     subprocess.call(['ffmpeg', '-y', '-i', temp_v, '-i', v_path, '-map', '0:v', '-map', '1:a', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-shortest', final_v])
     return final_v
-
-# --- UI Setup ---
-tab1, tab2 = st.tabs(["🌐 SRT ထုတ်ရန်", "📝 စာတန်းမြှုပ် (FREE/VIP)"])
 
 with tab2:
     st.header("📝 မြန်မာစာတန်းထိုး Video ထုတ်ယူခြင်း")
     v_up = st.file_uploader("Video တင်ပါ", type=["mp4", "mov"])
     s_up = st.file_uploader("SRT တင်ပါ", type=["srt"])
-    
     if v_up and s_up:
         if st.button("🚀 Render Final Video"):
-            with open("in.mp4", "wb") as f: 
-                f.write(v_up.read())
+            with open("in.mp4", "wb") as f: f.write(v_up.read())
             srt_content = s_up.read().decode('utf-8', errors='ignore')
-            
-            result = process_srt_video("in.mp4", srt_content)
-            
+            res = process_srt_video("in.mp4", srt_content)
             st.success("✅ Render အောင်မြင်ပါသည်!")
-            st.video(result)
-            with open(result, "rb") as f:
-                st.download_button("📥 Video ကိုဒေါင်းလုဒ်ဆွဲရန်", f, file_name="NMH_Subtitled.mp4", mime="video/mp4")
-                
+            st.video(res)
+            st.download_button("📥 Video ကိုဒေါင်းလုဒ်ဆွဲရန်", open(res, "rb"), file_name="NMH_Subtitled.mp4")
+            
