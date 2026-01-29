@@ -74,7 +74,7 @@ st.title("✨ NMH Pro Creator Tools")
 col_h1, col_h2 = st.columns([2, 1.5])
 with col_h1:
     st.markdown("### 👨‍💻 Developed by Naing Min Htet")
-    st.write("Professional Tools for Content Creators")
+    st.write("🚫Video Editing လုံးဝမလိုသော🚫 Professional Tools for Content Creators")
 with col_h2:
     st.link_button("🔵 Facebook Page", "https://www.facebook.com/share/1aavUJzZ9f/")
     st.link_button("✈️ Telegram Contact", "https://t.me/xiaoming2025nmx")
