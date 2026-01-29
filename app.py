@@ -3,7 +3,8 @@ import os
 import pysubs2
 from datetime import datetime
 from streamlit.web.server.websocket_headers import _get_websocket_headers
-from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip, CompositeVideoClip
+# 🔥 FIX: ImageClip ကို ဒီနေရာမှာ သေချာ Import ပြန်ထည့်ပေးထားပါတယ်
+from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip, CompositeVideoClip, ImageClip
 from PIL import Image, ImageDraw, ImageFont
 import nest_asyncio
 import subprocess
@@ -107,7 +108,7 @@ with tab1:
         with open(output_srt, "rb") as f: st.download_button("SRT ဖိုင် ဒေါင်းရန် (Download)", f.read(), "myanmar.srt", "text/plain")
 
 # ==========================================
-# TAB 2: BURN SUBTITLE
+# TAB 2: BURN SUBTITLE (FIXED)
 # ==========================================
 with tab2:
     st.header("Tab 2: စာတန်းမြှုပ်ခြင်း (Free)")
@@ -121,7 +122,9 @@ with tab2:
     with col1: v1_file = st.file_uploader("Video ဖိုင် ရွေးပါ", type=["mp4", "mov"], key="v1")
     with col2: s1_file = st.file_uploader("SRT ဖိုင် ရွေးပါ", type=["srt"], key="s1")
 
+    # 🔥 Subtitle Helper Function
     def generate_subtitle_clips(subtitle_path, video_width, video_height, font_path):
+        import numpy as np
         subs = pysubs2.load(subtitle_path, encoding="utf-8")
         subtitle_clips = []
         try: font = ImageFont.truetype(font_path, int(video_width/25))
@@ -134,6 +137,8 @@ with tab2:
             text_content = line.text.replace("\\N", "\n")
             try: draw.text((text_w/2, text_h/2), text_content, font=font, fill="white", stroke_width=3, stroke_fill="black", anchor="mm", align="center")
             except: draw.text((10, 10), text_content, font=font, fill="white", stroke_width=2, stroke_fill="black")
+            
+            # Here we use ImageClip which is now correctly imported
             clip = ImageClip(np.array(img)).set_start(line.start / 1000).set_duration((line.end - line.start) / 1000)
             clip = clip.set_position(('center', 0.80), relative=True)
             subtitle_clips.append(clip)
@@ -198,26 +203,19 @@ with tab3:
         show_login_ui("t3")
     else:
         st.success(f"✅ VIP အကောင့်ဖြင့် ဝင်ရောက်ထားပါသည်: {st.session_state.user_info}")
-        
-        # --- Voice Recommendations ---
         col_m, col_f = st.columns(2)
         with col_m:
             st.info("""**👨 ယောက်ျားအသံ (Male):**\n* Charon\n* Orion\n* Puck""")
         with col_f:
             st.warning("""**👩 မိန်းမအသံ (Female):**\n* Nova\n* Shimmer\n* Aoede""")
-        
         st.write("---")
-        
-        # --- Updated Step-by-Step Guide ---
-        st.markdown("### 📝 အသံထုတ်ရန် လမ်းညွှန် (Updated):")
         st.markdown("""
-        1. အောက်ပါ **"Google AI Studio သို့ သွားရန်"** ခလုတ်ကို နှိပ်ပါ။
-        2. မျက်နှာပြင်တွင် **"Turn text into audio with Gemini"** ဟုရေးထားသော **မိုက်ကရိုဖုန်းပုံစံ ကဒ် (Card)** ကို ရှာပြီးနှိပ်လိုက်ပါ။
-        3. ထို့နောက် **Voice** နေရာတွင် မိမိနှစ်သက်ရာ အသံ (ဥပမာ - **Charon**) ကို ရွေးပါ။
-        4. စာသားများကို Copy ကူးထည့်ပြီး **Generate** လုပ်ပါ။
-        5. ပြီးလျှင် **Download** လုပ်ပြီး Tab 4 တွင် ပြန်သုံးပါ။
+        **📝 အသံထုတ်ရန် လမ်းညွှန်:**
+        1. အောက်ပါ ခလုတ်ကို နှိပ်ပြီး Google AI Studio သို့ သွားပါ။
+        2. **"Turn text into audio with Gemini"** ဟုရေးထားသော ကဒ်ကို နှိပ်ပါ။
+        3. **Voice** နေရာတွင် မိမိနှစ်သက်ရာ အသံကို ရွေးပြီး စာသားထည့်ကာ **Generate** လုပ်ပါ။
+        4. ပြီးလျှင် **Download** လုပ်ပြီး Tab 4 တွင် ပြန်သုံးပါ။
         """)
-        
         st.link_button("🚀 Google AI Studio သို့ သွားရန် နှိပ်ပါ", "https://aistudio.google.com/")
 
 # ==========================================
@@ -238,74 +236,42 @@ with tab4:
         with col_v: video_input = st.file_uploader("၁။ Video ဖိုင် ရွေးချယ်ပါ", type=["mp4", "mov", "avi"], key="vid_merge")
         with col_a: audio_input = st.file_uploader("၂။ အသံဖိုင် ရွေးချယ်ပါ (MP3/WAV)", type=["mp3", "wav", "m4a"], key="aud_merge")
         
-        st.write("⏱️ **အသံ အနှေး/အမြန် ချိန်ညှိရန် (Audio Speed):**")
-        speed_option = st.select_slider(
-            "Slide to adjust speed", 
-            options=["0.5x (Slow)", "0.75x", "1.0x (Normal)", "1.25x (Fast)", "1.5x (Faster)", "2.0x"], 
-            value="1.0x (Normal)"
-        )
-
+        speed_option = st.select_slider("⏱️ အသံ အနှေး/အမြန် ချိန်ညှိရန်:", options=["0.5x", "0.75x", "1.0x", "1.25x", "1.5x", "2.0x"], value="1.0x")
         keep_bg = st.checkbox("မူရင်း Video နောက်ခံအသံကို မဖျက်ဘဲထားမည်", value=True, key="bg_t4")
 
-        # --- FFmpeg Speed Change Function (Error Free) ---
         def change_audio_speed_ffmpeg(input_file, output_file, speed_str):
-            if "0.5x" in speed_str: rate = "0.5"
-            elif "0.75x" in speed_str: rate = "0.75"
-            elif "1.25x" in speed_str: rate = "1.25"
-            elif "1.5x" in speed_str: rate = "1.5"
-            elif "2.0x" in speed_str: rate = "2.0"
-            else: return input_file 
-
-            # FFmpeg Command
-            cmd = [
-                "ffmpeg", "-y",
-                "-i", input_file,
-                "-filter:a", f"atempo={rate}",
-                "-vn", 
-                output_file
-            ]
+            rate = speed_str.replace("x", "")
+            cmd = ["ffmpeg", "-y", "-i", input_file, "-filter:a", f"atempo={rate}", "-vn", output_file]
             try:
                 subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 return output_file
-            except Exception as e:
-                print(f"FFmpeg Error: {e}")
-                return input_file
+            except: return input_file
 
         if video_input and audio_input and st.button("စတင်ပေါင်းစပ်မည် (Merge Now)", key="btn_merge"):
-            with st.spinner("အသံချိန်ညှိပြီး ပေါင်းစပ်နေပါသည်..."):
+            with st.spinner("လုပ်ဆောင်နေပါသည်..."):
                 ext = audio_input.name.split(".")[-1]
                 t_vid, t_aud, t_out = "temp_v.mp4", f"temp_a.{ext}", "out.mp4"
                 processed_aud = "temp_processed_audio.mp3"
-
                 with open(t_vid, "wb") as f: f.write(video_input.getbuffer())
                 with open(t_aud, "wb") as f: f.write(audio_input.getbuffer())
                 
                 try:
-                    # 1. Audio Speed Change (FFmpeg)
                     final_audio_path = t_aud
-                    if "Normal" not in speed_option:
+                    if "1.0x" not in speed_option:
                         final_audio_path = change_audio_speed_ffmpeg(t_aud, processed_aud, speed_option)
 
                     vc = VideoFileClip(t_vid)
                     ac = AudioFileClip(final_audio_path)
-                    
                     if ac.duration > vc.duration: ac = ac.subclip(0, vc.duration)
                     
-                    final_audio = None
-                    if keep_bg and vc.audio is not None:
-                        bg_audio = vc.audio.volumex(0.1)
-                        final_audio = CompositeAudioClip([bg_audio, ac])
-                    else:
-                        final_audio = ac
-                    
+                    final_audio = CompositeAudioClip([vc.audio.volumex(0.1), ac]) if keep_bg and vc.audio else ac
                     final_video = vc.set_audio(final_audio)
                     final_video.write_videofile(t_out, fps=24, codec='libx264', preset='fast', audio_codec='aac', threads=4, ffmpeg_params=["-crf", "23"])
-                    st.success(f"အောင်မြင်ပါသည်! (Speed: {speed_option})")
-                    with open(t_out, "rb") as f: st.download_button("Video ဒေါင်းရန် (Download Video)", f.read(), "merged.mp4", "video/mp4")
+                    st.success("အောင်မြင်ပါသည်!")
+                    with open(t_out, "rb") as f: st.download_button("Download Video", f.read(), "merged.mp4", "video/mp4")
                 except Exception as e: st.error(f"Error: {e}")
-                
                 if os.path.exists(t_vid): os.remove(t_vid)
                 if os.path.exists(t_aud): os.remove(t_aud)
                 if os.path.exists(processed_aud): os.remove(processed_aud)
                 if os.path.exists(t_out): os.remove(t_out)
-                    
+
