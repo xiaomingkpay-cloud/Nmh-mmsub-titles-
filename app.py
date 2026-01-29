@@ -8,12 +8,11 @@ from PIL import Image, ImageDraw, ImageFont
 from datetime import timedelta
 
 st.set_page_config(page_title="NMH Pro Creator Tools", layout="wide")
-st.title("✨ NMH Pro Creator Tools (SRT Timing Fix)")
+st.title("✨ NMH Pro Creator Tools (Final Fixed)")
 
-# --- SRT Parsing Logic (SRT ဖိုင်ကို ဖတ်ရန်) ---
+# --- SRT Parsing Logic ---
 def parse_srt(srt_string):
     subs = []
-    # SRT format ကို ခွဲခြားခြင်း
     pattern = r'(\d+)\n(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\n((?:.*\n?)*?)(?=\n\n|\Z)'
     matches = re.findall(pattern, srt_string)
     for m in matches:
@@ -38,15 +37,21 @@ def process_srt_video(v_path, srt_text):
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     out = cv2.VideoWriter(temp_v, fourcc, fps, (w, h))
     
-    font = ImageFont.truetype("myanmar_font.ttf", int(h/20)) # Video size အလိုက် font size ချိန်ခြင်း
+    # Video အမြင့်ပေါ်မူတည်ပြီး Font size ချိန်ခြင်း
+    font_size = int(h / 15)
+    try:
+        font = ImageFont.truetype("myanmar_font.ttf", font_size)
+    except:
+        font = ImageFont.load_default()
     
     prog_bar = st.progress(0)
+    status_txt = st.empty()
+
     for i in range(total_frames):
         ret, frame = cap.read()
         if not ret: break
         
         current_sec = i / fps
-        # အချိန်ကိုက် စာသားရှာဖွေခြင်း
         active_text = ""
         for s in subtitles:
             if s['start'].total_seconds() <= current_sec <= s['end'].total_seconds():
@@ -56,33 +61,44 @@ def process_srt_video(v_path, srt_text):
         if active_text:
             img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             draw = ImageDraw.Draw(img)
-            # စာသားအလယ်ဗဟို ချိန်ခြင်း
+            # စာသားနေရာ ချိန်ညှိခြင်း (ဗဟိုအောက်ခြေ)
             bbox = draw.textbbox((0, 0), active_text, font=font)
             text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
-            draw.text(((w - text_w)//2, h - text_h - 50), active_text, font=font, fill=(255, 255, 255), stroke_width=2, stroke_fill=(0,0,0))
+            # Stroke (စာသားဘောင်အနက်) ထည့်ခြင်း
+            draw.text(((w - text_w)//2, h - text_h - 60), active_text, font=font, fill=(255, 255, 255), stroke_width=2, stroke_fill=(0,0,0))
             frame = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
             
         out.write(frame)
         prog_bar.progress((i + 1) / total_frames)
+        status_txt.text(f"Rendering: {int(((i+1)/total_frames)*100)}%")
 
     cap.release()
     out.release()
 
-    # Audio ပြန်ပေါင်းခြင်း
-    final_v = "NMH_SRT_Finished.mp4"
-    subprocess.call(['ffmpeg', '-y', '-i', temp_v, '-i', v_path, '-map', '0:v', '-map', '1:a', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', final_v])
+    # Audio ပြန်ပေါင်းခြင်း (Final Output)
+    final_v = "NMH_Subtitled_Final.mp4"
+    subprocess.call(['ffmpeg', '-y', '-i', temp_v, '-i', v_path, '-map', '0:v', '-map', '1:a', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-shortest', final_v])
     return final_v
 
+# --- UI Setup ---
 tab1, tab2 = st.tabs(["🌐 SRT ထုတ်ရန်", "📝 စာတန်းမြှုပ် (FREE/VIP)"])
 
 with tab2:
-    v_up = st.file_uploader("Video တင်ပါ", type=["mp4"])
+    st.header("📝 မြန်မာစာတန်းထိုး Video ထုတ်ယူခြင်း")
+    v_up = st.file_uploader("Video တင်ပါ", type=["mp4", "mov"])
     s_up = st.file_uploader("SRT တင်ပါ", type=["srt"])
+    
     if v_up and s_up:
         if st.button("🚀 Render Final Video"):
-            with open("in.mp4", "wb") as f: f.write(v_up.read())
-            srt_str = s_up.read().decode('utf-8')
-            res = process_srt_video("in.mp4", s_str)
-            st.video(res)
-            st.download_button("📥 Download Now", open(res, "rb"), file_name="NMH_Subtitled.mp4")
+            with open("in.mp4", "wb") as f: 
+                f.write(v_up.read())
+            # SRT ဖိုင်ကို Text အဖြစ်ဖတ်ခြင်း
+            srt_content = s_up.read().decode('utf-8')
             
+            result = process_srt_video("in.mp4", srt_content)
+            
+            st.success("✅ Render အောင်မြင်ပါသည်!")
+            st.video(result)
+            with open(result, "rb") as f:
+                st.download_button("📥 Video ကိုဒေါင်းလုဒ်ဆွဲရန်", f, file_name="NMH_Subtitled.mp4", mime="video/mp4")
+                
