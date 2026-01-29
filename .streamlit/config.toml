@@ -1,9 +1,0 @@
-[server]
-enableCORS = false
-enableXsrfProtection = false
-enableWebsocketCompression = false
-maxUploadSize = 500
-
-[browser]
-gatherUsageStats = false
-
