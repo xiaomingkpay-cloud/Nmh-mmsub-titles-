@@ -66,18 +66,18 @@ def show_login_ui(key):
         else: st.error("Code မှားယွင်းနေပါသည်။")
 
 # ==========================================
-# 🏠 TOP CREATOR INFORMATION BANNER
+# 🏠 TOP CREATOR BANNER WITH BUTTONS
 # ==========================================
 st.title("✨ NMH Pro Creator Tools")
 
-# ညီကိုပေးထားတဲ့ အချက်အလက်များကို ထိပ်ဆုံးမှာ တန်းပေါ်စေရန် ထည့်သွင်းထားပါသည်
-col_h1, col_h2 = st.columns([2, 1])
+# 👨‍💻 Creator Info & Social Buttons
+col_h1, col_h2 = st.columns([2, 1.5])
 with col_h1:
-    st.markdown("#### 👨‍💻 Developed by Naing Min Htet")
+    st.markdown("### 👨‍💻 Developed by Naing Min Htet")
     st.write("Professional Tools for Content Creators")
 with col_h2:
     st.link_button("🔵 Facebook Page", "https://www.facebook.com/share/1aavUJzZ9f/")
-    st.markdown("💬 **Telegram:** @xiaoming2025nmx")
+    st.link_button("✈️ Telegram Contact", "https://t.me/xiaoming2025nmx")
 
 st.info("🌟 VIP အကောင့်ဝယ်ယူလိုပါက အထက်ပါ Link များမှတစ်ဆင့် ဆက်သွယ်နိုင်ပါသည်။")
 st.markdown("---")
@@ -97,19 +97,19 @@ with tab1:
         st.success("အောင်မြင်ပါသည်!")
         st.download_button("Download SRT", clean, "myanmar.srt")
 
-# --- TAB 2: SUBTITLE BURNER (VIP UNLIMITED) ---
+# --- TAB 2: SUBTITLE BURNER ---
 with tab2:
     st.header("Tab 2: စာတန်းမြှုပ်ခြင်း")
     u_ip = get_remote_ip()
     is_vip = st.session_state.user_info is not None
     
     if is_vip:
-        st.success(f"🌟 VIP အကောင့်: {st.session_state.user_info}")
+        st.success(f"🌟 VIP အကောင့်: {st.session_state.user_info} (အကန့်အသတ်မရှိ အသုံးပြုနိုင်ပါသည်)")
     else:
         if u_ip not in usage_data["users"]: usage_data["users"][u_ip] = 0
         left = 3 - usage_data["users"][u_ip]
-        if left > 0: st.info(f"✅ Free လက်ကျန်: {left}/3 ပုဒ်")
-        else: st.error("⛔ Limit Reached (VIP Login ဝင်ပါ)")
+        if left > 0: st.info(f"✅ Free လက်ကျန်: {left}/3 ပုဒ် (VIP ဝယ်ယူပါက Unlimited သုံးနိုင်ပါသည်)")
+        else: st.error("⛔ Daily Limit Reached (ဆက်လက်အသုံးပြုရန် VIP ကုဒ်ဖြင့် Login ဝင်ပါ)")
 
     v_file = st.file_uploader("Video တင်ပါ", type=["mp4", "mov"], key="t2_v")
     s_file = st.file_uploader("SRT တင်ပါ", type=["srt"], key="t2_s")
@@ -118,7 +118,6 @@ with tab2:
         subs = pysubs2.load(s_path, encoding="utf-8")
         clips = []
         is_v = v_h > v_w
-        # 🔥 ညီကိုပြောတဲ့ 16:9 = စာလုံး ၅၀၊ ၄၀% အမြင့် (0.60) သတ်မှတ်ချက်
         wrap, pos, f_div = (35, 0.65, 18) if is_v else (50, 0.60, 22)
         font = ImageFont.truetype(f_path, int(v_w / f_div))
         for line in subs:
@@ -151,30 +150,33 @@ with tab2:
             for f in ["t_v.mp4", "t_s.srt", "o.mp4"]:
                 if os.path.exists(f): os.remove(f)
 
-# --- TAB 3: AUDIO GUIDE ---
+# --- TAB 3: AUDIO (RE-ADDED VOICE COLORS) ---
 with tab3:
     st.header("Tab 3: အသံထုတ်လုပ်နည်း")
     if not st.session_state.user_info: show_login_ui("t3")
     else:
         st.success(f"✅ VIP အကောင့်ဖြင့် ဝင်ရောက်ထားပါသည်: {st.session_state.user_info}")
+        
+        # 🔥 Re-added Voice Color Information
         col1, col2 = st.columns(2)
         with col1:
-            st.info("**👨 ကျားအသံ (Male):**\n* Charon (အသံနက်)\n* Orion (စကားပြောသွက်)\n* Puck (လူငယ်သံ)")
+            st.info("**👨 ကျားအသံ (Male Voice Color):**\n* Charon (အသံနက်/တည်ငြိမ်)\n* Orion (စကားပြောသွက်/တက်ကြွ)\n* Puck (လူငယ်သံ/ကြည်လင်)")
         with col2:
-            st.warning("**👩 မအသံ (Female):**\n* Nova (တက်ကြွ)\n* Shimmer (တည်ငြိမ်)\n* Aoede (အသံပါး)")
-        
+            st.warning("**👩 မအသံ (Female Voice Color):**\n* Nova (တက်ကြွ/ထင်ရှား)\n* Shimmer (တည်ငြိမ်/အေးချမ်း)\n* Aoede (အသံပါး/နူးညံ့)")
+            
         st.write("---")
-        st.markdown("### 📝 လမ်းညွှန်ချက်:")
+        st.markdown("### 📝 အသံထုတ်ယူပုံ အဆင့်ဆင့်:")
         st.markdown("""
-        1. အောက်ပါ **"Go to Google AI Studio"** ကို နှိပ်ပါ။
-        2. **"Turn text into audio with Gemini"** ကဒ်ကို နှိပ်ပါ။
+        1. အောက်ပါ **"Go to Google AI Studio"** ခလုတ်ကို နှိပ်ပါ။
+        2. မျက်နှာပြင်ရှိ **"Turn text into audio with Gemini"** ကဒ်ကို နှိပ်ပါ။
         3. ညာဘက်ရှိ **Speaker type** တွင် **"Single speaker"** ကို အရင်ရွေးပါ။
-        4. Voice တွင် မိမိနှစ်သက်ရာအသံကို ရွေးပါ။
-        5. စာသားများထည့်ပြီး **Generate** လုပ်ပါ။ ဒေါင်းလုဒ်ဆွဲပြီး **Tab 4** တွင် သုံးပါ။
+        4. ထို့နောက် **Voice** နေရာတွင် မိမိနှစ်သက်ရာ **အသံကာလာ** ကို ရွေးချယ်ပါ။
+        5. Gemini SRT မှ ရလာသောစာများကို Copy ကူးထည့်ပြီး **Generate** နှိပ်ပါ။
+        6. ဒေါင်းလုဒ်ဆွဲပြီး ရလာသောအသံဖိုင်ကို **Tab 4** တွင် Video နှင့် ပေါင်းစပ်ပါ။
         """)
         st.link_button("🚀 Go to Google AI Studio", "https://aistudio.google.com/")
 
-# --- TAB 4: MERGE (0.9x - 1.3x) ---
+# --- TAB 4: MERGE ---
 with tab4:
     st.header("Tab 4: Video နှင့် အသံဖိုင် ပေါင်းစပ်ခြင်း")
     if not st.session_state.user_info: show_login_ui("t4")
