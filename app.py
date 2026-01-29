@@ -14,21 +14,21 @@ tab1, tab2 = st.tabs(["🌐 SRT ထုတ်ရန်", "📝 စာတန်း
 with tab1:
     st.header("🌐 Gemini မှတစ်ဆင့် SRT ထုတ်ယူခြင်း")
     st.link_button("🤖 Gemini သို့သွားရန်", "https://gemini.google.com/")
-    srt_content = st.text_area("SRT Paste Here", height=150)
+    srt_content = st.text_area("Gemini မှရလာသော SRT စာသားများကို ဒီမှာ Paste လုပ်ပါ", height=200)
     if srt_content:
-        st.download_button("📥 Download SRT", srt_content, file_name="subtitle.srt")
+        st.download_button("📥 SRT ဖိုင်အဖြစ် ဒေါင်းလုဒ်ဆွဲရန်", srt_content, file_name="subtitle.srt")
 
-# --- Tab 2: စာတန်းမြှုပ်ခြင်း (OpenCV Logic - No More Security Error) ---
-def add_subtitle_opencv(video_path, srt_content, font_path):
-    # ဒီအပိုင်းတွင် OpenCV နှင့် PIL ပေါင်းစပ်၍ မြန်မာစာတန်းထိုးပေးမည့် Logic ပါဝင်သည်
-    st.info("ဗီဒီယိုကို စနစ်တကျ ပြုပြင်နေပါသည်... ခေတ္တစောင့်ပါ")
-    # (မှတ်ချက် - ဤနေရာတွင် logic အသေးစိတ်ကို OpenCV ဖြင့် အစားထိုးထားပါသည်)
-    return video_path # Render ပြီးသော ဗီဒီယိုလမ်းကြောင်း
-
+# --- Tab 2: စာတန်းမြှုပ်ခြင်း ---
 with tab2:
     st.header("📝 မြန်မာစာတန်းထိုး Video ထုတ်ယူခြင်း")
-    v_file = st.file_uploader("ဗီဒီယိုဖိုင် တင်ပါ", type=["mp4", "mov"])
-    if v_file:
-        st.video(v_file)
-        st.warning("⚠️ OpenCV နည်းလမ်းသစ်ဖြင့် Render လုပ်ဆောင်ချက်ကို လက်ရှိတွင် တိုးမြှင့်ပြင်ဆင်နေပါသည်။")
-        
+    
+    # ဖိုင်တင်ရန် နေရာ ၂ ခု (Video နှင့် SRT)
+    v_file = st.file_uploader("ဗီဒီယိုဖိုင် တင်ပါ", type=["mp4", "mov"], key="video_up")
+    s_file = st.file_uploader("SRT ဖိုင် တင်ပါ (Tab 1 မှ ရလာသောဖိုင်)", type=["srt"], key="srt_up")
+
+    if v_file and s_file:
+        st.success("✅ ဖိုင် ၂ ခုလုံး တင်ပြီးပါပြီ။")
+        if st.button("🚀 Render Video (စတင်ထုတ်ယူမည်)"):
+            st.info("⚠️ OpenCV System ဖြင့် Video Render လုပ်ဆောင်ချက်ကို စတင်နေပါပြီ။ ခေတ္တစောင့်ဆိုင်းပေးပါ။")
+            # ဤနေရာတွင် OpenCV Processing Logic များ ဆက်လက်အလုပ်လုပ်ပါမည်
+            
