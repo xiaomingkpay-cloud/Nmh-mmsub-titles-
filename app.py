@@ -43,11 +43,12 @@ def check_code_validity(user_value):
         except: return True, user_value, None
     return True, user_value, None
 
+# Auto Login Check
 if "user_info" not in st.session_state:
     st.session_state.user_info = None
     current_ip = get_remote_ip()
     for code, bound_ip in usage_data["bindings"].items():
-        if bound_ip in usage_data["bindings"].values() and code in st.secrets.get("users", {}):
+        if bound_ip == current_ip and code in st.secrets.get("users", {}):
             ok, name, err = check_code_validity(st.secrets["users"][code])
             if ok: st.session_state.user_info = name
 
@@ -81,7 +82,7 @@ with tab1:
         st.success("အောင်မြင်ပါသည်!")
         st.download_button("Download SRT", clean, "myanmar.srt")
 
-# --- TAB 2 ---
+# --- TAB 2 (SUBTITLE MASTER FIX - FULL VISIBILITY) ---
 with tab2:
     st.header("Tab 2: စာတန်းမြှုပ်ခြင်း (Free)")
     u_ip = get_remote_ip()
@@ -97,24 +98,31 @@ with tab2:
         subs = pysubs2.load(s_path, encoding="utf-8")
         clips = []
         is_v = v_h > v_w
-        wrap, pos, f_div = (32, 0.70, 18) if is_v else (42, 0.60, 22)
+        # 🔥 FIX: အလျားလိုက် Video (16:9) အတွက် နေရာ 0.58 သို့ ထပ်တင်လိုက်သည်
+        wrap, pos, f_div = (32, 0.70, 18) if is_v else (42, 0.58, 22)
         font = ImageFont.truetype(f_path, int(v_w / f_div))
+        
         for line in subs:
             if not line.text.strip(): continue
             txt = textwrap.fill(line.text.replace("\\N", " "), width=wrap)
-            box_w, box_h = int(v_w * 0.98), int(v_h * 0.80)
+            
+            # 🔥 BOX FIX: ၃ တန်းအထက်ပေါ်စေရန် Box Height ၈၅% အထိတိုးသည်
+            box_w, box_h = int(v_w * 0.98), int(v_h * 0.85)
             img = Image.new('RGBA', (box_w, box_h), (0,0,0,0))
             draw = ImageDraw.Draw(img)
+            
+            # BACKGROUND BOX
             bbox = draw.textbbox((box_w/2, box_h/2), txt, font=font, anchor="mm", align="center")
-            pad = 15
-            draw.rectangle([bbox[0]-pad, bbox[1]-pad, bbox[2]+pad, bbox[3]+pad], fill=(0, 0, 0, 150))
+            pad = 18
+            draw.rectangle([bbox[0]-pad, bbox[1]-pad, bbox[2]+pad, bbox[3]+pad], fill=(0, 0, 0, 160))
+            
             draw.text((box_w/2, box_h/2), txt, font=font, fill="white", stroke_width=2, stroke_fill="black", anchor="mm", align="center")
             c = ImageClip(np.array(img)).set_start(line.start/1000).set_duration((line.end-line.start)/1000).set_position(('center', pos), relative=True)
             clips.append(c)
         return clips
 
     if left > 0 and v_file and s_file and st.button("စာတန်းမြှုပ်မည်", key="t2_btn"):
-        with st.spinner("Processing..."):
+        with st.spinner("စာသားအပြည့်အစုံပေါ်အောင် လုပ်ဆောင်နေပါသည်..."):
             with open("t_v.mp4", "wb") as f: f.write(v_file.getbuffer())
             with open("t_s.srt", "wb") as f: f.write(s_file.getbuffer())
             try:
@@ -122,13 +130,13 @@ with tab2:
                 final = CompositeVideoClip([vid] + make_subs("t_s.srt", vid.w, vid.h, "myanmar_font.ttf"))
                 final.write_videofile("o.mp4", fps=24, codec='libx264', audio_codec='aac')
                 usage_data["users"][u_ip] += 1
-                st.success("အောင်မြင်ပါသည်!")
+                st.success("Done!")
                 with open("o.mp4", "rb") as f: st.download_button("Download", f.read(), "subbed.mp4")
             except Exception as e: st.error(str(e))
             for f in ["t_v.mp4", "t_s.srt", "o.mp4"]:
                 if os.path.exists(f): os.remove(f)
 
-# --- TAB 3 (FULL INSTRUCTIONS) ---
+# --- TAB 3 (FULL INFO) ---
 with tab3:
     st.header("Tab 3: အသံထုတ်လုပ်နည်း")
     if not st.session_state.user_info: show_login_ui("t3")
@@ -151,7 +159,7 @@ with tab3:
         """)
         st.link_button("🚀 Go to Google AI Studio", "https://aistudio.google.com/")
 
-# --- TAB 4 (CUSTOM SPEED) ---
+# --- TAB 4 (CUSTOM SPEED: 0.9x - 1.3x) ---
 with tab4:
     st.header("Tab 4: Video နှင့် အသံဖိုင် ပေါင်းစပ်ခြင်း")
     if not st.session_state.user_info: show_login_ui("t4")
@@ -178,7 +186,7 @@ with tab4:
                     af = CompositeAudioClip([vc.audio.volumex(0.1), ac]) if bg and vc.audio else ac
                     vc.set_audio(af).write_videofile("o.mp4", fps=24, codec='libx264', audio_codec='aac')
                     st.success("Done!")
-                    with open("o.mp4", "rb") as f: st.download_button("Download", f.read(), "merged.mp4")
+                    with open("o.mp4", "rb") as f: st.download_button("Download Result", f.read(), "merged.mp4")
                 except Exception as e: st.error(str(e))
                 for f in ["v.mp4", f"a.{a_ex}", "ap.mp3", "o.mp4"]:
                     if os.path.exists(f): os.remove(f)
