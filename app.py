@@ -83,7 +83,7 @@ with tab1:
         st.success("အောင်မြင်ပါသည်!")
         st.download_button("Download SRT", clean, "myanmar.srt")
 
-# --- TAB 2: SUBTITLE BURNER (POSITION & HEIGHT ADJUSTED) ---
+# --- TAB 2: SUBTITLE BURNER (BACKGROUND BOX + POSITION FIX) ---
 with tab2:
     st.header("Tab 2: စာတန်းမြှုပ်ခြင်း (Free)")
     user_ip = get_remote_ip()
@@ -99,22 +99,30 @@ with tab2:
         subs = pysubs2.load(s_path, encoding="utf-8")
         clips = []
         is_vert = v_h > v_w
-        # 🔥 FIX: အလျားလိုက် Video (16:9) အတွက် နေရာကို 0.65 သို့ မြှင့်တင်လိုက်ပါသည် (အပေါ်တက်လာမည်)
-        # စာလုံးရေဖြတ်တောက်မှုကို ၄၀ လုံးသို့ လျှော့ချပါသည်
-        wrap, pos, f_div = (35, 0.70, 18) if is_vert else (40, 0.65, 22)
+        # Ratio အလိုက် နေရာနှင့် အရွယ်အစားညှိခြင်း
+        wrap, pos, f_div = (32, 0.70, 18) if is_vert else (42, 0.62, 22)
         font = ImageFont.truetype(f_path, int(v_w / f_div))
         
         for line in subs:
             if not line.text.strip(): continue
             txt = textwrap.fill(line.text.replace("\\N", " "), width=wrap)
             
-            # 🔥 BOX FIX: စာတန်းအပြည့်ပေါ်စေရန် Box အမြင့်ကို ညှိထားပါသည်
-            box_w, box_h = int(v_w * 0.95), int(v_h * 0.50)
+            # 🔥 BOX FIX: ၃ တန်းအထိ အဆင်ပြေစေရန် Box အရွယ်အစားကို တိုးမြှင့်လိုက်သည်
+            box_w, box_h = int(v_w * 0.98), int(v_h * 0.70)
             img = Image.new('RGBA', (box_w, box_h), (0,0,0,0))
             draw = ImageDraw.Draw(img)
             
+            # စာသားအရွယ်အစားကို တိုင်းတာခြင်း
+            bbox = draw.textbbox((box_w/2, box_h/2), txt, font=font, anchor="mm", align="center")
+            padding = 15
+            bg_rect = [bbox[0]-padding, bbox[1]-padding, bbox[2]+padding, bbox[3]+padding]
+            
+            # 🔥 BACKGROUND BOX: စာသားနောက်ခံ အနက်ရောင်မှိန်မှိန် ထည့်သွင်းခြင်း
+            draw.rectangle(bg_rect, fill=(0, 0, 0, 140)) # 140 = 55% transparency
+            
+            # စာသားရေးဆွဲခြင်း
             draw.text((box_w/2, box_h/2), txt, font=font, fill="white", 
-                      stroke_width=4, stroke_fill="black", anchor="mm", align="center")
+                      stroke_width=2, stroke_fill="black", anchor="mm", align="center")
             
             c = ImageClip(np.array(img)).set_start(line.start/1000).set_duration((line.end-line.start)/1000)
             c = c.set_position(('center', pos), relative=True)
@@ -122,7 +130,7 @@ with tab2:
         return clips
 
     if left > 0 and v_file and s_file and st.button("စာတန်းမြှုပ်မည်", key="t2_btn"):
-        with st.spinner("စာတန်းကို အပေါ်တင်ပေးနေပါသည်..."):
+        with st.spinner("စာသားနောက်ခံဖြင့် ၃ တန်းအထိပေါ်အောင် လုပ်ဆောင်နေပါသည်..."):
             with open("temp_v.mp4", "wb") as f: f.write(v_file.getbuffer())
             with open("temp_s.srt", "wb") as f: f.write(s_file.getbuffer())
             try:
@@ -136,31 +144,27 @@ with tab2:
             for f in ["temp_v.mp4", "temp_s.srt", "out.mp4"]: 
                 if os.path.exists(f): os.remove(f)
 
-# --- TAB 3: AUDIO ---
+# --- TAB 3: AUDIO & TAB 4: MERGE (အရင်အတိုင်း မထိခိုက်အောင် ထားရှိပါသည်) ---
 with tab3:
     st.header("Tab 3: အသံထုတ်လုပ်နည်း")
     if not st.session_state.user_info: show_login_ui("t3")
     else:
         st.success(f"✅ VIP အကောင့်: {st.session_state.user_info}")
         col1, col2 = st.columns(2)
-        with col1: st.info("**👨 ကျားအသံ (Male):**\n* Charon, Orion, Puck")
-        with col2: st.warning("**👩 မအသံ (Female):**\n* Nova, Shimmer, Aoede")
+        with col1: st.info("**👨 ကျားအသံ:**\n* Charon, Orion, Puck")
+        with col2: st.warning("**👩 မအသံ:**\n* Nova, Shimmer, Aoede")
         st.link_button("🚀 Go to Google AI Studio", "https://aistudio.google.com/")
 
-# --- TAB 4: MERGE (0.9x - 1.3x) ---
 with tab4:
     st.header("Tab 4: Video နှင့် အသံဖိုင် ပေါင်းစပ်ခြင်း")
     if not st.session_state.user_info: show_login_ui("t4")
     else:
         st.success(f"✅ VIP အကောင့်: {st.session_state.user_info}")
         if st.button("Logout"): st.session_state.user_info = None; st.rerun()
-        
         v_in = st.file_uploader("Video ရွေးပါ", type=["mp4", "mov"], key="t4_v")
         a_in = st.file_uploader("Audio ရွေးပါ", type=None, key="t4_a")
-        
         spd = st.select_slider("အသံ အနှေး/အမြန်:", options=["0.9x", "1.0x", "1.1x", "1.2x", "1.3x"], value="1.0x")
         bg = st.checkbox("မူရင်း Background အသံထားမည်", value=True)
-        
         if v_in and a_in and st.button("Merge Now"):
             with st.spinner("Processing..."):
                 ext = a_in.name.split(".")[-1]
@@ -172,7 +176,7 @@ with tab4:
                     if spd != "1.0x":
                         subprocess.run(["ffmpeg", "-y", "-i", t_a, "-filter:a", f"atempo={spd.replace('x','')}", "-vn", "ap.mp3"])
                         final_a = "ap.mp3"
-                    vc = VideoFileClip(t_v)
+                    vc = VideoFileClip("v.mp4")
                     ac = AudioFileClip(final_a)
                     if ac.duration > vc.duration: ac = ac.subclip(0, vc.duration)
                     af = CompositeAudioClip([vc.audio.volumex(0.1), ac]) if bg and vc.audio else ac
