@@ -69,7 +69,7 @@ with tab1:
         st.success("အောင်မြင်ပါသည်!")
         st.download_button("Download SRT", clean, "myanmar.srt")
 
-# --- TAB 2: SUBTITLE BURNER ---
+# --- TAB 2: SUBTITLE BURNER (FIXED FOR FULL VISIBILITY) ---
 with tab2:
     st.header("Tab 2: စာတန်းမြှုပ်ခြင်း (Free)")
     user_ip = get_remote_ip()
@@ -85,19 +85,29 @@ with tab2:
         subs = pysubs2.load(s_path, encoding="utf-8")
         clips = []
         is_vert = v_h > v_w
-        wrap, pos, f_div = (35, 0.70, 18) if is_vert else (50, 0.75, 22)
+        # 16:9 Video အတွက် စာလုံးရေကို ၄၅ လုံးသို့ ထပ်လျှော့ပြီး နေရာကို အပေါ်မြှင့်ထားသည်
+        wrap, pos, f_div = (35, 0.70, 18) if is_vert else (45, 0.72, 22)
         font = ImageFont.truetype(f_path, int(v_w / f_div))
+        
         for line in subs:
             if not line.text.strip(): continue
             txt = textwrap.fill(line.text.replace("\\N", " "), width=wrap)
-            img = Image.new('RGBA', (int(v_w*0.95), int(v_h*0.45)), (0,0,0,0))
-            ImageDraw.Draw(img).text((img.width/2, img.height/2), txt, font=font, fill="white", stroke_width=3, stroke_fill="black", anchor="mm", align="center")
-            c = ImageClip(np.array(img)).set_start(line.start/1000).set_duration((line.end-line.start)/1000).set_position(('center', pos), relative=True)
+            
+            # 🔥 FIX: စာတန်းတွေ အပြည့်အစုံပေါ်အောင် Text Box အရွယ်အစား (Height) ကို တိုးမြှင့်လိုက်သည်
+            box_w, box_h = int(v_w * 0.95), int(v_h * 0.55)
+            img = Image.new('RGBA', (box_w, box_h), (0,0,0,0))
+            draw = ImageDraw.Draw(img)
+            
+            draw.text((box_w/2, box_h/2), txt, font=font, fill="white", 
+                      stroke_width=4, stroke_fill="black", anchor="mm", align="center")
+            
+            c = ImageClip(np.array(img)).set_start(line.start/1000).set_duration((line.end-line.start)/1000)
+            c = c.set_position(('center', pos), relative=True)
             clips.append(c)
         return clips
 
     if left > 0 and v_file and s_file and st.button("စာတန်းမြှုပ်မည်", key="t2_btn"):
-        with st.spinner("Processing..."):
+        with st.spinner("စာတန်းများကို အပြည့်အစုံပေါ်အောင် ညှိနှိုင်းနေပါသည်..."):
             with open("temp_v.mp4", "wb") as f: f.write(v_file.getbuffer())
             with open("temp_s.srt", "wb") as f: f.write(s_file.getbuffer())
             try:
@@ -110,20 +120,6 @@ with tab2:
             except Exception as e: st.error(str(e))
             for f in ["temp_v.mp4", "temp_s.srt", "out.mp4"]: 
                 if os.path.exists(f): os.remove(f)
-
-# --- VIP LOGIN HELPER ---
-def login_ui(key):
-    st.warning("🔒 VIP ကုဒ် လိုအပ်ပါသည်။")
-    tk = st.text_input("Enter Token:", type="password", key=f"tk_{key}")
-    if st.button("Login", key=f"ln_{key}"):
-        if tk in st.secrets.get("users", {}):
-            ok, name, err = check_code_validity(st.secrets["users"][tk])
-            if ok:
-                usage_data["bindings"][tk] = get_remote_ip()
-                st.session_state.user_info = name
-                st.rerun()
-            else: st.error(err)
-        else: st.error("Code မှားယွင်းနေပါသည်။")
 
 # --- TAB 3: AUDIO GUIDE (FULL INFO) ---
 with tab3:
@@ -147,44 +143,36 @@ with tab3:
         """)
         st.link_button("🚀 Go to Google AI Studio", "https://aistudio.google.com/")
 
-# --- TAB 4: VIDEO & AUDIO MERGE (CUSTOM SPEED) ---
+# --- TAB 4: MERGE (CUSTOM SPEED) ---
 with tab4:
     st.header("Tab 4: Video နှင့် အသံဖိုင် ပေါင်းစပ်ခြင်း")
     if not st.session_state.user_info: login_ui("t4")
     else:
         st.success(f"✅ VIP အကောင့်: {st.session_state.user_info}")
         if st.button("Logout"): st.session_state.user_info = None; st.rerun()
-        
         v_in = st.file_uploader("Video ရွေးပါ", type=["mp4", "mov"], key="t4_v")
         a_in = st.file_uploader("Audio ရွေးပါ", type=None, key="t4_a")
-        
-        # ⏱️ ညီကိုဖြစ်စေချင်တဲ့ Speed ပမာဏအတိအကျ ပြင်ဆင်ထားပါတယ်
-        spd = st.select_slider("အသံ အနှေး/အမြန် (Audio Speed):", 
-                               options=["0.9x", "1.0x", "1.1x", "1.2x", "1.3x"], 
-                               value="1.0x") 
-        
+        spd = st.select_slider("အသံ အနှေး/အမြန်:", options=["0.9x", "1.0x", "1.1x", "1.2x", "1.3x"], value="1.0x")
         bg = st.checkbox("မူရင်း Background အသံထားမည်", value=True)
-        
         if v_in and a_in and st.button("Merge Now"):
-            with st.spinner("ပေါင်းစပ်နေပါသည်..."):
+            with st.spinner("Processing..."):
                 a_ext = a_in.name.split(".")[-1]
-                t_v, t_a, t_o = "t_v.mp4", f"t_a.{a_ext}", "fin.mp4"
+                t_v, t_a, t_o = "v.mp4", f"a.{a_ext}", "fin.mp4"
                 with open(t_v, "wb") as f: f.write(v_in.getbuffer())
                 with open(t_a, "wb") as f: f.write(a_in.getbuffer())
                 try:
-                    final_a_path = t_a
+                    final_a = t_a
                     if spd != "1.0x":
-                        rate = spd.replace('x','')
-                        subprocess.run(["ffmpeg", "-y", "-i", t_a, "-filter:a", f"atempo={rate}", "-vn", "t_ap.mp3"])
-                        final_a_path = "t_ap.mp3"
+                        subprocess.run(["ffmpeg", "-y", "-i", t_a, "-filter:a", f"atempo={spd.replace('x','')}", "-vn", "ap.mp3"])
+                        final_a = "ap.mp3"
                     vc = VideoFileClip(t_v)
-                    ac = AudioFileClip(final_a_path)
+                    ac = AudioFileClip(final_a)
                     if ac.duration > vc.duration: ac = ac.subclip(0, vc.duration)
                     af = CompositeAudioClip([vc.audio.volumex(0.1), ac]) if bg and vc.audio else ac
                     vc.set_audio(af).write_videofile(t_o, fps=24, codec='libx264', audio_codec='aac')
                     st.success("Done!")
-                    with open(t_o, "rb") as f: st.download_button("Download Video", f.read(), "merged.mp4")
+                    with open(t_o, "rb") as f: st.download_button("Download", f.read(), "merged.mp4")
                 except Exception as e: st.error(str(e))
-                for f in [t_v, t_a, t_o, "t_ap.mp3"]:
+                for f in [t_v, t_a, "ap.mp3", t_o]: 
                     if os.path.exists(f): os.remove(f)
                         
