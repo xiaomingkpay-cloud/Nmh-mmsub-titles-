@@ -3,6 +3,4 @@ moviepy==1.0.3
 pysubs2
 pillow
 numpy<2.0.0
-pydub
-pyaudioop
 nest_asyncio
