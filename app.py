@@ -82,7 +82,7 @@ with tab1:
         st.success("အောင်မြင်ပါသည်!")
         st.download_button("Download SRT", clean, "myanmar.srt")
 
-# --- TAB 2 (SUBTITLE MASTER FIX - FULL VISIBILITY) ---
+# --- TAB 2 (SUBTITLE POSITION FIX) ---
 with tab2:
     st.header("Tab 2: စာတန်းမြှုပ်ခြင်း (Free)")
     u_ip = get_remote_ip()
@@ -98,31 +98,40 @@ with tab2:
         subs = pysubs2.load(s_path, encoding="utf-8")
         clips = []
         is_v = v_h > v_w
-        # 🔥 FIX: အလျားလိုက် Video (16:9) အတွက် နေရာ 0.58 သို့ ထပ်တင်လိုက်သည်
-        wrap, pos, f_div = (32, 0.70, 18) if is_v else (42, 0.58, 22)
+        
+        # 🔥 FIX: ညီကိုပြောတဲ့ Ratio အလိုက် အမြင့်သတ်မှတ်ချက်များ
+        # 9:16 (ဒေါင်လိုက်) ဆိုရင် အောက်ကနေကြည့်ရင် 35% အမြင့် (Top position = 0.65)
+        # 16:9 (အလျားလိုက်) ဆိုရင် အောက်ကနေကြည့်ရင် 40% အမြင့် (Top position = 0.60)
+        wrap, pos, f_div = (35, 0.65, 18) if is_v else (65, 0.60, 22)
+        
         font = ImageFont.truetype(f_path, int(v_w / f_div))
         
         for line in subs:
             if not line.text.strip(): continue
             txt = textwrap.fill(line.text.replace("\\N", " "), width=wrap)
             
-            # 🔥 BOX FIX: ၃ တန်းအထက်ပေါ်စေရန် Box Height ၈၅% အထိတိုးသည်
-            box_w, box_h = int(v_w * 0.98), int(v_h * 0.85)
+            # စာကြောင်းရေအလိုက် Box အမြင့်ကို အလိုအလျောက်ညှိရန်
+            box_w, box_h = int(v_w * 0.98), int(v_h * 0.50)
             img = Image.new('RGBA', (box_w, box_h), (0,0,0,0))
             draw = ImageDraw.Draw(img)
             
-            # BACKGROUND BOX
+            # စာသားအရွယ်အစား တိုင်းတာပြီး နောက်ခံထည့်ရန်
             bbox = draw.textbbox((box_w/2, box_h/2), txt, font=font, anchor="mm", align="center")
             pad = 18
             draw.rectangle([bbox[0]-pad, bbox[1]-pad, bbox[2]+pad, bbox[3]+pad], fill=(0, 0, 0, 160))
             
+            # စာသားရေးဆွဲခြင်း (Anchor ကို mm ထားပြီး အပေါ်ကနေစရေးပါမည်)
             draw.text((box_w/2, box_h/2), txt, font=font, fill="white", stroke_width=2, stroke_fill="black", anchor="mm", align="center")
-            c = ImageClip(np.array(img)).set_start(line.start/1000).set_duration((line.end-line.start)/1000).set_position(('center', pos), relative=True)
+            
+            c = ImageClip(np.array(img)).set_start(line.start/1000).set_duration((line.end-line.start)/1000)
+            
+            # 🔥 စာကြောင်းတွေ အောက်ကိုဆင်းသွားစေရန် set_position တွင် Top Anchor သုံးပါသည်
+            c = c.set_position(('center', pos), relative=True)
             clips.append(c)
         return clips
 
     if left > 0 and v_file and s_file and st.button("စာတန်းမြှုပ်မည်", key="t2_btn"):
-        with st.spinner("စာသားအပြည့်အစုံပေါ်အောင် လုပ်ဆောင်နေပါသည်..."):
+        with st.spinner("သတ်မှတ်ထားသော အမြင့်အတိုင်း စာတန်းမြှုပ်နေပါသည်..."):
             with open("t_v.mp4", "wb") as f: f.write(v_file.getbuffer())
             with open("t_s.srt", "wb") as f: f.write(s_file.getbuffer())
             try:
@@ -136,30 +145,18 @@ with tab2:
             for f in ["t_v.mp4", "t_s.srt", "o.mp4"]:
                 if os.path.exists(f): os.remove(f)
 
-# --- TAB 3 (FULL INFO) ---
+# --- TAB 3 (လမ်းညွှန်စာများ မပြောင်းလဲပါ) ---
 with tab3:
     st.header("Tab 3: အသံထုတ်လုပ်နည်း")
     if not st.session_state.user_info: show_login_ui("t3")
     else:
-        st.success(f"✅ VIP အကောင့်ဖြင့် ဝင်ရောက်ထားပါသည်: {st.session_state.user_info}")
+        st.success(f"✅ VIP အကောင့်: {st.session_state.user_info}")
         col1, col2 = st.columns(2)
-        with col1:
-            st.info("**👨 ကျားအသံ (Male):**\n* Charon (အသံနက်)\n* Orion (စကားပြောသွက်)\n* Puck (လူငယ်သံ)")
-        with col2:
-            st.warning("**👩 မအသံ (Female):**\n* Nova (တက်ကြွ)\n* Shimmer (တည်ငြိမ်)\n* Aoede (အသံပါး)")
-        
-        st.write("---")
-        st.markdown("### 📝 လမ်းညွှန်:")
-        st.markdown("""
-        1. အောက်ပါ **"Go to Google AI Studio"** ခလုတ်ကို နှိပ်ပါ။
-        2. မျက်နှာပြင်ရှိ **"Turn text into audio with Gemini"** ကဒ်ကို နှိပ်ပါ။
-        3. ညာဘက်ရှိ **Speaker type** တွင် **"Single speaker"** ကို အရင်ရွေးပါ။
-        4. ထို့နောက် **Voice** တွင် မိမိနှစ်သက်ရာအသံကို ရွေးပါ။
-        5. စာသားများထည့်ပြီး **Generate** လုပ်ပါ။ ဒေါင်းလုဒ်ဆွဲပြီး **Tab 4** တွင် သုံးပါ။
-        """)
+        with col1: st.info("**👨 ကျားအသံ:**\n* Charon, Orion, Puck")
+        with col2: st.warning("**👩 မအသံ:**\n* Nova, Shimmer, Aoede")
         st.link_button("🚀 Go to Google AI Studio", "https://aistudio.google.com/")
 
-# --- TAB 4 (CUSTOM SPEED: 0.9x - 1.3x) ---
+# --- TAB 4 (Merge Fix) ---
 with tab4:
     st.header("Tab 4: Video နှင့် အသံဖိုင် ပေါင်းစပ်ခြင်း")
     if not st.session_state.user_info: show_login_ui("t4")
@@ -186,7 +183,7 @@ with tab4:
                     af = CompositeAudioClip([vc.audio.volumex(0.1), ac]) if bg and vc.audio else ac
                     vc.set_audio(af).write_videofile("o.mp4", fps=24, codec='libx264', audio_codec='aac')
                     st.success("Done!")
-                    with open("o.mp4", "rb") as f: st.download_button("Download Result", f.read(), "merged.mp4")
+                    with open("o.mp4", "rb") as f: st.download_button("Download", f.read(), "merged.mp4")
                 except Exception as e: st.error(str(e))
                 for f in ["v.mp4", f"a.{a_ex}", "ap.mp3", "o.mp4"]:
                     if os.path.exists(f): os.remove(f)
