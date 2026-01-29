@@ -6,7 +6,7 @@ from streamlit.web.server.websocket_headers import _get_websocket_headers
 from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip, CompositeVideoClip
 from PIL import Image, ImageDraw, ImageFont
 import nest_asyncio
-from pydub import AudioSegment
+import subprocess
 
 nest_asyncio.apply()
 
@@ -35,7 +35,7 @@ def get_remote_ip():
     return "unknown_user"
 
 # ==========================================
-# 📅 EXPIRY CHECK SYSTEM
+# 📅 EXPIRY CHECK
 # ==========================================
 def check_code_validity(user_value):
     if "|" in user_value:
@@ -98,7 +98,6 @@ with tab1:
     st.header("အဆင့် ၁ - Gemini မှ SRT စာသားတောင်းယူပါ")
     st.link_button("🚀 Google Gemini သို့သွားရန် နှိပ်ပါ", "https://gemini.google.com/")
     st.info("Gemini တွင် 'Generate Myanmar SRT file for this video' ဟု ရေးပြီး တောင်းပါ။")
-    
     srt_text_input = st.text_area("Gemini မှပေးလိုက်သော SRT စာသားများကို ဒီအကွက်ထဲ Paste ချပါ:", height=300)
     if srt_text_input and st.button("SRT ဖိုင်အဖြစ် ပြောင်းမည်"):
         clean_text = srt_text_input.replace("```srt", "").replace("```", "").strip()
@@ -108,14 +107,13 @@ with tab1:
         with open(output_srt, "rb") as f: st.download_button("SRT ဖိုင် ဒေါင်းရန် (Download)", f.read(), "myanmar.srt", "text/plain")
 
 # ==========================================
-# TAB 2: BURN SUBTITLE (FREE)
+# TAB 2: BURN SUBTITLE
 # ==========================================
 with tab2:
     st.header("Tab 2: စာတန်းမြှုပ်ခြင်း (Free)")
     user_ip = get_remote_ip()
     if user_ip not in usage_data["users"]: usage_data["users"][user_ip] = 0
     usage_left = 3 - usage_data["users"][user_ip]
-    
     if usage_left > 0: st.info(f"✅ ယနေ့လက်ကျန် Free Limit: {usage_left}/3 ပုဒ်")
     else: st.error("⛔ Free Limit ကုန်သွားပါပြီ။ မနက်ဖြန်မှ ပြန်ရပါမည်။")
 
@@ -169,18 +167,15 @@ def show_login_ui(key_suffix):
     col_pass1, _ = st.columns([3, 1])
     with col_pass1: 
         token_input = st.text_input("VIP ကုဒ် ရိုက်ထည့်ပါ:", type="password", key=f"pro_token_{key_suffix}")
-    
     if st.button("VIP အကောင့်ဝင်မည်", key=f"btn_login_{key_suffix}"):
         if "users" in st.secrets and token_input in st.secrets["users"]:
             raw_value = st.secrets["users"][token_input]
             is_valid, user_name, error_msg = check_code_validity(raw_value)
-            
             if not is_valid:
                 st.error(error_msg)
                 return
-
             current_ip = get_remote_ip()
-            if token_input == "nmh-123": # Admin
+            if token_input == "nmh-123":
                 st.session_state.user_info = user_name
                 st.rerun()
             else:
@@ -191,51 +186,31 @@ def show_login_ui(key_suffix):
                 elif usage_data["bindings"][token_input] == current_ip:
                     st.session_state.user_info = user_name
                     st.rerun()
-                else: 
-                    st.error("⛔ Device Locked: ဤကုဒ်ကို အခြားဖုန်းတစ်ခုတွင် သုံးနေပါသည်။")
-        else: 
-            st.error("ကုဒ် မှားယွင်းနေပါသည်။")
+                else: st.error("⛔ Device Locked: ဤကုဒ်ကို အခြားဖုန်းတစ်ခုတွင် သုံးနေပါသည်။")
+        else: st.error("ကုဒ် မှားယွင်းနေပါသည်။")
 
 # ==========================================
-# TAB 3: GOOGLE AI STUDIO (VOICE GUIDE ADDED)
+# TAB 3: GOOGLE AI STUDIO
 # ==========================================
 with tab3:
     st.header("Tab 3: အသံဖိုင်ထုတ်လုပ်နည်း (Audio Generation)")
-    
     if st.session_state.user_info is None:
         show_login_ui("t3")
     else:
         st.success(f"✅ VIP အကောင့်ဖြင့် ဝင်ရောက်ထားပါသည်: {st.session_state.user_info}")
-        
-        st.markdown("### 🔊 အသံရွေးချယ်ရန် လမ်းညွှန်")
-        
-        # Voice Recommendation Section
         col_m, col_f = st.columns(2)
         with col_m:
-            st.info("""
-            **👨 ယောက်ျားအသံ လိုချင်လျှင် ရွေးပါ:**
-            * **Charon** (အသံနက်၊ တည်ငြိမ်သည်)
-            * **Orion** (အသံကြည်၊ စကားပြောသွက်သည်)
-            * **Puck** (လူငယ်အသံ)
-            """)
+            st.info("""**👨 ယောက်ျားအသံ (Male):**\n* Charon\n* Orion\n* Puck""")
         with col_f:
-            st.warning("""
-            **👩 မိန်းမအသံ လိုချင်လျှင် ရွေးပါ:**
-            * **Nova** (အသံသွက်၊ တက်ကြွသည်)
-            * **Shimmer** (အသံငြိမ့်၊ နားထောင်ကောင်းသည်)
-            * **Aoede** (အသံပါး၊ လေးလေးမှန်မှန်ပြောသည်)
-            """)
-            
+            st.warning("""**👩 မိန်းမအသံ (Female):**\n* Nova\n* Shimmer\n* Aoede""")
         st.write("---")
-        st.info("အပေါ်က အသံနာမည်များကို မှတ်ထားပြီး အောက်ပါခလုတ်ကို နှိပ်ကာ Google AI Studio တွင် သွားထုတ်ပါ။")
         st.link_button("🚀 Google AI Studio သို့ သွားရန် နှိပ်ပါ", "https://aistudio.google.com/")
 
 # ==========================================
-# TAB 4: MANUAL MERGE (SPEED CONTROL ADDED)
+# TAB 4: MANUAL MERGE (FFMPEG VERSION)
 # ==========================================
 with tab4:
     st.header("Tab 4: Video နှင့် အသံဖိုင် ပေါင်းစပ်ခြင်း")
-    
     if st.session_state.user_info is None:
         show_login_ui("t4")
     else:
@@ -246,44 +221,38 @@ with tab4:
         st.write("---")
 
         col_v, col_a = st.columns(2)
-        with col_v: 
-            video_input = st.file_uploader("၁။ Video ဖိုင် ရွေးချယ်ပါ", type=["mp4", "mov", "avi"], key="vid_merge")
-        with col_a: 
-            audio_input = st.file_uploader("၂။ အသံဖိုင် ရွေးချယ်ပါ (MP3/WAV)", type=["mp3", "wav", "m4a"], key="aud_merge")
+        with col_v: video_input = st.file_uploader("၁။ Video ဖိုင် ရွေးချယ်ပါ", type=["mp4", "mov", "avi"], key="vid_merge")
+        with col_a: audio_input = st.file_uploader("၂။ အသံဖိုင် ရွေးချယ်ပါ (MP3/WAV)", type=["mp3", "wav", "m4a"], key="aud_merge")
         
-        # Speed Adjustment Slider
-        st.write("⏱️ **အသံ အနှေး/အမြန် ချိန်ညှိရန် (Audio Speed):**")
-        speed_option = st.select_slider(
-            "Slide to adjust speed (ပုံမှန် = 1.0x)",
-            options=["0.5x (Slow)", "0.75x (Slightly Slow)", "1.0x (Normal)", "1.25x (Fast)", "1.5x (Faster)", "2.0x (Double Speed)"],
-            value="1.0x (Normal)"
-        )
+        st.write("⏱️ **အသံ အနှေး/အမြန် ချိန်ညှိရန်:**")
+        speed_option = st.select_slider("Slide to adjust speed", options=["0.5x", "0.75x", "1.0x", "1.25x", "1.5x", "2.0x"], value="1.0x")
 
         keep_bg = st.checkbox("မူရင်း Video နောက်ခံအသံကို မဖျက်ဘဲထားမည်", value=True, key="bg_t4")
 
-        # Function to Change Audio Speed
-        def change_audio_speed(input_file, output_file, speed_str):
-            audio = AudioSegment.from_file(input_file)
-            
-            # Parse speed value
-            if "0.5x" in speed_str: rate = 0.5
-            elif "0.75x" in speed_str: rate = 0.75
-            elif "1.25x" in speed_str: rate = 1.25
-            elif "1.5x" in speed_str: rate = 1.5
-            elif "2.0x" in speed_str: rate = 2.0
-            else: return input_file # 1.0x = No change
+        # --- FFmpeg Speed Change Function (No Pydub) ---
+        def change_audio_speed_ffmpeg(input_file, output_file, speed_str):
+            # Map speed string to float value for ffmpeg atempo filter
+            if "0.5x" in speed_str: rate = "0.5"
+            elif "0.75x" in speed_str: rate = "0.75"
+            elif "1.25x" in speed_str: rate = "1.25"
+            elif "1.5x" in speed_str: rate = "1.5"
+            elif "2.0x" in speed_str: rate = "2.0"
+            else: return input_file # 1.0x or unknown
 
-            # Speed Change Logic (Pydub speedup works for >1.0, for <1.0 we manipulate frame rate)
-            if rate > 1.0:
-                audio = audio.speedup(playback_speed=rate)
-            else:
-                # Slower speed (Note: This might lower the pitch slightly)
-                new_sample_rate = int(audio.frame_rate * rate)
-                audio = audio._spawn(audio.raw_data, overrides={'frame_rate': new_sample_rate})
-                audio = audio.set_frame_rate(44100)
-
-            audio.export(output_file, format="mp3")
-            return output_file
+            # FFmpeg command: ffmpeg -i input.mp3 -filter:a "atempo=1.25" -vn output.mp3
+            cmd = [
+                "ffmpeg", "-y",
+                "-i", input_file,
+                "-filter:a", f"atempo={rate}",
+                "-vn", 
+                output_file
+            ]
+            try:
+                subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                return output_file
+            except Exception as e:
+                print(f"FFmpeg Error: {e}")
+                return input_file
 
         if video_input and audio_input and st.button("စတင်ပေါင်းစပ်မည် (Merge Now)", key="btn_merge"):
             with st.spinner("အသံချိန်ညှိပြီး ပေါင်းစပ်နေပါသည်..."):
@@ -295,10 +264,10 @@ with tab4:
                 with open(t_aud, "wb") as f: f.write(audio_input.getbuffer())
                 
                 try:
-                    # 1. Handle Audio Speed
+                    # 1. Audio Speed Change (FFmpeg)
                     final_audio_path = t_aud
-                    if "Normal" not in speed_option:
-                        final_audio_path = change_audio_speed(t_aud, processed_aud, speed_option)
+                    if "1.0x" not in speed_option:
+                        final_audio_path = change_audio_speed_ffmpeg(t_aud, processed_aud, speed_option)
 
                     vc = VideoFileClip(t_vid)
                     ac = AudioFileClip(final_audio_path)
@@ -313,15 +282,13 @@ with tab4:
                         final_audio = ac
                     
                     final_video = vc.set_audio(final_audio)
-                    
                     final_video.write_videofile(t_out, fps=24, codec='libx264', preset='fast', audio_codec='aac', threads=4, ffmpeg_params=["-crf", "23"])
                     st.success(f"အောင်မြင်ပါသည်! (Speed: {speed_option})")
                     with open(t_out, "rb") as f: st.download_button("Video ဒေါင်းရန် (Download Video)", f.read(), "merged.mp4", "video/mp4")
                 except Exception as e: st.error(f"Error: {e}")
                 
-                # Cleanup
                 if os.path.exists(t_vid): os.remove(t_vid)
                 if os.path.exists(t_aud): os.remove(t_aud)
                 if os.path.exists(processed_aud): os.remove(processed_aud)
                 if os.path.exists(t_out): os.remove(t_out)
-            
+                    
