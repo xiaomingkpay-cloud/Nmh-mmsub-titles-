@@ -87,17 +87,19 @@ st.markdown("---")
 # ==========================================
 tab1, tab2, tab3, tab4 = st.tabs(["🌐 SRT ထုတ်ရန်", "📝 စာတန်းမြှုပ် (FREE/VIP)", "🗣️ အသံထုတ်ရန် (VIP)", "🎬 Video ပေါင်းရန် (VIP)"])
 
-# --- TAB 1: SRT GENERATOR (FIXED STABLE VERSION) ---
+# --- TAB 1: SRT GENERATOR ---
 with tab1:
     st.header("Gemini SRT Generator")
     
     st.markdown("### 📝 SRT ထုတ်ယူပုံ လမ်းညွှန်:")
     st.markdown("""
     1. အောက်ပါအကွက်ထဲမှ စာသားဘေးရှိ **Copy (ပုံလေး)** ကို နှိပ်ပါ။
-    2. ထို့နောက် **"Google Gemini သို့သွားရန်"** ကို နှိပ်ပြီး Gemini ထဲတွင် Paste လုပ်ပါ။
+    2. ထို့နောက် **"Google Gemini သို့သွားရန်"** ကို နှိပ်ပြီး 
+       gemini ထဲတွင် + နှိပ်ပြီးvd ရွေးပါ ခုနကစာကို  paste လုပ်ပါ။
+
     """)
     
-    # 🔥 FIXED: Error မတက်ဘဲ Copy ကူးနိုင်ရန် st.code ကို အသုံးပြုလိုက်ပါသည်
+    # Error မတက်အောင် st.code ကို အသုံးပြုထားပါသည်
     st.code("Myanmar စာတန်ထိုး srt ထုတ်ပေးပါ", language=None)
     
     st.link_button("🚀 Google Gemini သို့သွားရန်", "https://gemini.google.com/")
@@ -108,7 +110,7 @@ with tab1:
         st.success("အောင်မြင်ပါသည်!")
         st.download_button("Download SRT ဖိုင်ရယူရန်", clean, "myanmar.srt")
 
-# --- TAB 2: SUBTITLE BURNER (VIP UNLIMITED) ---
+# --- TAB 2: SUBTITLE BURNER ---
 with tab2:
     st.header("Tab 2: စာတန်းမြှုပ်ခြင်း")
     u_ip = get_remote_ip()
@@ -162,17 +164,30 @@ with tab2:
             for f in ["t_v.mp4", "t_s.srt", "o.mp4"]:
                 if os.path.exists(f): os.remove(f)
 
-# --- TAB 3: AUDIO ---
+# --- TAB 3: AUDIO (INSTRUCTIONS FIXED) ---
 with tab3:
     st.header("Tab 3: အသံထုတ်လုပ်နည်း")
     if not st.session_state.user_info: show_login_ui("t3")
     else:
         st.success(f"✅ VIP အကောင့်ဖြင့် ဝင်ရောက်ထားပါသည်: {st.session_state.user_info}")
+        
         col1, col2 = st.columns(2)
         with col1:
             st.info("**👨 ကျားအသံ (Male Voice Color):**\n* Charon (အသံနက်)\n* Orion (စကားပြောသွက်)\n* Puck (လူငယ်သံ)")
         with col2:
             st.warning("**👩 မအသံ (Female Voice Color):**\n* Nova (တက်ကြွ)\n* Shimmer (တည်ငြိမ်)\n* Aoede (အသံပါး)")
+            
+        st.write("---")
+        # 🔥 Re-added Instructions for Tab 3
+        st.markdown("### 📝 အသံထုတ်ယူပုံ အဆင့်ဆင့်:")
+        st.markdown("""
+        1. အောက်ပါ **"Go to Google AI Studio"** ခလုတ်ကို နှိပ်ပါ။
+        2. မျက်နှာပြင်ရှိ **"Turn text into audio with Gemini"** ကဒ်ကို နှိပ်ပါ။
+        3. ညာဘက်ရှိ **Speaker type** တွင် **"Single speaker"** ကို အရင်ရွေးပါ။
+        4. Voice နေရာတွင် မိမိနှစ်သက်ရာ **အသံကာလာ** ကို ရွေးချယ်ပါ။
+        5. Gemini SRT မှ ရလာသောစာများကို Copy ကူးထည့်ပြီး **Generate** နှိပ်ပါ။
+        6. ဒေါင်းလုဒ်ဆွဲပြီး ရလာသောအသံဖိုင်ကို **Tab 4** တွင် Video နှင့် ပေါင်းစပ်ပါ။
+        """)
         st.link_button("🚀 Go to Google AI Studio", "https://aistudio.google.com/")
 
 # --- TAB 4: MERGE ---
@@ -202,8 +217,8 @@ with tab4:
                     af = CompositeAudioClip([vc.audio.volumex(0.1), ac]) if bg and vc.audio else ac
                     vc.set_audio(af).write_videofile("o.mp4", fps=24, codec='libx264', audio_codec='aac')
                     st.success("Done!")
-                    with open("o.mp4", "rb") as f: st.download_button("Download", f.read(), "merged.mp4")
+                    with open("o.mp4", "rb") as f: st.download_button("Download Result", f.read(), "merged.mp4")
                 except Exception as e: st.error(str(e))
                 for f in ["v.mp4", f"a.{a_ex}", "ap.mp3", "o.mp4"]:
                     if os.path.exists(f): os.remove(f)
-                        
+
