@@ -11,37 +11,26 @@ from datetime import timedelta
 st.set_page_config(page_title="NMH Pro Creator Tools", layout="wide")
 st.title("✨ NMH Pro Creator Tools")
 
-# Tab များသတ်မှတ်ခြင်း
 tab1, tab2 = st.tabs(["🌐 SRT ထုတ်ရန်", "📝 စာတန်းမြှုပ် (FREE/VIP)"])
 
-# --- Tab 1: SRT Helper (အညွှန်းနှင့် ကော်ပီခလုတ် အသစ်များ) ---
+# --- Tab 1: SRT Helper ---
 with tab1:
     st.header("🌐 Gemini မှတစ်ဆင့် SRT ထုတ်ယူခြင်း")
-    
     st.subheader("အဆင့် (၁) - စာသားကို Copy ယူပါ")
     prompt_text = "ဒီဗီဒီယိုအတွက် မြန်မာ SRT ထုတ်ပေးပါ"
-    
-    # စာသားကို ကော်ပီယူရန် ခလုတ်
     col1, col2 = st.columns([3, 1])
-    with col1:
-        st.code(prompt_text, language=None)
-    with col2:
-        st.write("နှိပ်ပြီး Copy ယူပါ ☝️")
-
+    with col1: st.code(prompt_text, language=None)
+    with col2: st.write("နှိပ်ပြီး Copy ယူပါ ☝️")
     st.divider()
-
     st.subheader("အဆင့် (၂) - Gemini သို့သွား၍ SRT ထုတ်ယူပါ")
-    st.write("အောက်ကခလုတ်ကိုနှိပ်ပြီး Gemini မှာ SRT Copy သွားယူပါ 👇")
     st.link_button("🤖 Gemini သို့သွားရန်", "https://gemini.google.com/")
-
     st.divider()
-
     st.subheader("အဆင့် (၃) - ရလာသော SRT ကို သိမ်းဆည်းပါ")
     srt_input = st.text_area("Gemini မှရလာသော SRT စာသားများကို ဒီမှာ Paste လုပ်ပါ", height=150)
     if srt_input:
         st.download_button("📥 SRT ဖိုင်အဖြစ် သိမ်းဆည်းရန်", srt_input, file_name="subtitle.srt")
 
-# --- Tab 2: စာတန်းမြှုပ်ခြင်း Logic ---
+# --- SRT Parsing & Video Processing ---
 def parse_srt(srt_string):
     subs = []
     blocks = re.split(r'\n\s*\n', srt_string.strip())
@@ -61,7 +50,7 @@ def parse_time(time_str):
     parts = time_str.split(':')
     return timedelta(hours=int(parts[0]), minutes=int(parts[1]), seconds=float(parts[2]))
 
-def process_srt_video(v_path, srt_text):
+def process_srt_video(v_path, srt_text, pos_pct):
     subtitles = parse_srt(srt_text)
     cap = cv2.VideoCapture(v_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -89,15 +78,20 @@ def process_srt_video(v_path, srt_text):
                 break
         
         if active_text:
-            char_limit = 60 if is_landscape else 40
+            # Ratio အလိုက် စာကြောင်းဖြတ်ခြင်း
+            char_limit = 60 if is_landscape else 30
             wrapped_text = "\n".join(textwrap.wrap(active_text, width=char_limit))
+            
             img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             draw = ImageDraw.Draw(img)
             
-            margin_pct = 0.20 if is_landscape else 0.40
+            # User ရွေးချယ်ထားသော Position (10%, 20%, 30%)
+            margin_pct = pos_pct / 100
+            
             bbox = draw.multiline_textbbox((0, 0), wrapped_text, font=font)
             text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
-            text_x, text_y = (w - text_w) // 2, h - int(h * margin_pct) - text_h
+            text_x = (w - text_w) // 2
+            text_y = h - int(h * margin_pct) - text_h
             
             padding = 15
             overlay = Image.new('RGBA', img.size, (0,0,0,0))
@@ -123,11 +117,15 @@ with tab2:
     st.header("📝 မြန်မာစာတန်းထိုး Video ထုတ်ယူခြင်း")
     v_up = st.file_uploader("Video တင်ပါ", type=["mp4", "mov"])
     s_up = st.file_uploader("SRT တင်ပါ", type=["srt"])
+    
+    # Position Option ရွေးချယ်ရန်
+    pos_choice = st.selectbox("စာတန်းပေါ်မည့်နေရာကို ရွေးချယ်ပါ (အောက်ခြေမှအကွာအဝေး %)", [10, 20, 30], index=1)
+    
     if v_up and s_up:
         if st.button("🚀 Render Final Video"):
             with open("in.mp4", "wb") as f: f.write(v_up.read())
             srt_content = s_up.read().decode('utf-8', errors='ignore')
-            res = process_srt_video("in.mp4", srt_content)
+            res = process_srt_video("in.mp4", srt_content, pos_choice)
             st.success("✅ Render အောင်မြင်ပါသည်!")
             st.video(res)
             st.download_button("📥 Video ကိုဒေါင်းလုဒ်ဆွဲရန်", open(res, "rb"), file_name="NMH_Subtitled.mp4")
