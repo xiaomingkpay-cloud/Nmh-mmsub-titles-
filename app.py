@@ -10,7 +10,7 @@ from PIL import Image, ImageDraw, ImageFont
 from datetime import timedelta
 
 # UI Configuration
-st.set_page_config(page_title="NMH Pro Creator Tools", layout="wide")
+st.set_page_config(page_title="NMH မြန်မာစာတန်းထိုး Pro", layout="wide")
 
 # --- LOGIN GATE ---
 all_vip_keys = st.secrets.get("vip_keys", {}).values()
@@ -21,26 +21,55 @@ if 'last_render' not in st.session_state:
     st.session_state.last_render = 0
 
 if not st.session_state.authenticated:
-    st.title("🔐 NMH Pro Tools - Login")
+    st.title("🔐 NMH မြန်မာစာတန်းထိုး Pro - Login")
     user_key = st.text_input("ဝင်ရောက်ရန် VIP Key ရိုက်ထည့်ပါ", type="password")
+    
     if st.button("Login"):
         if user_key in all_vip_keys:
             st.session_state.authenticated = True
             st.rerun()
         else:
             st.error("❌ Key မှားယွင်းနေပါသည်။")
+    
+    # --- CONTACT SECTION UNDER LOGIN ---
+    st.divider()
+    st.subheader("📞 Creator သို့ ဆက်သွယ်ရန်")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.link_button("🔵 Facebook မှဆက်သွယ်ရန်", "https://www.facebook.com/share/1BUUZ4pQ3N/")
+    with col2:
+        st.link_button("✈️ Telegram မှဆက်သွယ်ရန်", "https://t.me/xiaoming2025nmx")
+    
+    st.info("""
+    🌟 **ရရှိနိုင်သော Service များ:**
+    * VPN / Follower Service (Facebook, TikTok)
+    * Facebook Service အမျိုးမျိုး
+    """)
     st.stop()
+
+# --- MAIN APP UI (After Login) ---
+with st.sidebar:
+    st.title("👤 NMH Pro Member")
+    st.success("Welcome back, VIP Member!")
+    st.divider()
+    st.subheader("📞 Creator Contact")
+    st.write("Link: [Facebook](https://www.facebook.com/share/1BUUZ4pQ3N/)")
+    st.write("Telegram: `@xiaoming2025nmx`")
+    if st.button("Logout"):
+        st.session_state.authenticated = False
+        st.rerun()
+
+st.title("✨ NMH မြန်မာစာတန်းထိုး Pro")
 
 # --- FUNCTIONS ---
 def compress_video(input_path, output_path, quality_label):
-    # Error မတက်စေရန် Label များကို အတိအကျ ပြန်ချိန်ထားသည်
     crf_map = {
         "High (အကြည်ဦးစားပေး)": "20", 
         "Medium (ပုံမှန်)": "24", 
         "Low (ဆိုဒ်သေးဦးစားပေး)": "28"
     }
     crf = crf_map.get(quality_label, "24")
-    
     cmd = [
         'ffmpeg', '-y', '-i', input_path,
         '-c:v', 'libx264', '-crf', crf,
@@ -100,22 +129,16 @@ def process_srt_video(v_path, srt_text, pos_pct):
         if i % 25 == 0: prog.progress((i+1)/total_f)
     cap.release(); out.release()
     
-    # Final Combine with original audio
     subprocess.call(['ffmpeg', '-y', '-i', 'temp_render.mp4', '-i', v_path, '-map', '0:v', '-map', '1:a', '-c:v', 'libx264', '-crf', '23', '-pix_fmt', 'yuv420p', '-shortest', 'NMH_Final.mp4'])
     return 'NMH_Final.mp4'
 
-# --- MAIN UI ---
-st.title("✨ NMH Creator Pro Tools")
-
+# --- TABS ---
 tab1, tab2, tab3 = st.tabs(["📉 Step 1: Video Compress", "🌐 Step 2: SRT Helper", "📝 Step 3: Subtitle Render"])
 
-# --- Step 1: Video Compressor ---
+# --- Step 1: Compressor ---
 with tab1:
     st.header("📉 Video File Size လျှော့ချခြင်း")
-    st.info("ဗီဒီယိုဆိုဒ်ကြီးနေပါက ဤနေရာတွင် အရင်ကျုံ့ပေးပါ (Resolution မကျပါ)")
     raw_v = st.file_uploader("ဗီဒီယိုတင်ပါ", type=["mp4", "mov"], key="comp")
-    
-    # ValueError မတက်စေရန် value ကို options ထဲက စာသားအတိုင်း ပေးထားသည်
     q_options = ["High (အကြည်ဦးစားပေး)", "Medium (ပုံမှန်)", "Low (ဆိုဒ်သေးဦးစားပေး)"]
     q_level = st.select_slider("Quality", options=q_options, value="Medium (ပုံမှန်)")
     
@@ -135,10 +158,9 @@ with tab2:
     srt_in = st.text_area("SRT Paste လုပ်ပါ")
     if srt_in: st.download_button("📥 Save SRT", srt_in, file_name="sub.srt")
 
-# --- Step 3: Render Subtitle ---
+# --- Step 3: Render ---
 with tab3:
     st.header("📝 မြန်မာစာတန်းထိုးခြင်း")
-    # ၁၅ မိနစ် စောင့်ဆိုင်းချိန် စစ်ဆေးခြင်း
     elapsed = time.time() - st.session_state.last_render
     if elapsed < 900 and st.session_state.last_render != 0:
         st.warning(f"⏳ ၁၅ မိနစ် စောင့်ဆိုင်းချိန်အတွင်း ရှိနေပါသည်။ ကျန်ချိန်: {int((900-elapsed)//60)} မိနစ်")
@@ -153,4 +175,4 @@ with tab3:
                 st.session_state.last_render = time.time()
                 st.video(final)
                 st.download_button("📥 Download Video", open(final, "rb"), file_name="NMH_Final.mp4")
-                
+        
