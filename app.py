@@ -32,14 +32,19 @@ if not st.session_state.authenticated:
     st.stop()
 
 # --- FUNCTIONS ---
-def compress_video(input_path, output_path, quality):
-    # CRF value: 18 (အကြည်ဆုံး) မှ 28 (အကျုံ့ဆုံး)
-    crf_map = {"High (အကြည်ဦးစားပေး)": "20", "Medium (ပုံမှန်)": "24", "Low (ဆိုဒ်သေးဦးစားပေး)": "28"}
-    crf = crf_map.get(quality, "24")
+def compress_video(input_path, output_path, quality_label):
+    # Error မတက်စေရန် Label များကို အတိအကျ ပြန်ချိန်ထားသည်
+    crf_map = {
+        "High (အကြည်ဦးစားပေး)": "20", 
+        "Medium (ပုံမှန်)": "24", 
+        "Low (ဆိုဒ်သေးဦးစားပေး)": "28"
+    }
+    crf = crf_map.get(quality_label, "24")
+    
     cmd = [
         'ffmpeg', '-y', '-i', input_path,
         '-c:v', 'libx264', '-crf', crf,
-        '-preset', 'fast', '-c:a', 'aac', '-b:a', '128k',
+        '-preset', 'veryfast', '-c:a', 'aac', '-b:a', '128k',
         output_path
     ]
     subprocess.call(cmd)
@@ -66,7 +71,7 @@ def process_srt_video(v_path, srt_text, pos_pct):
     subtitles = parse_srt(srt_text)
     cap = cv2.VideoCapture(v_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
-    w, h = int(cap.get(cv2.CAP_PROP_WIDTH)), int(cap.get(cv2.CAP_PROP_HEIGHT))
+    w, h = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     
     out = cv2.VideoWriter("temp_render.mp4", cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
     font_size = int(h / 18 if w > h else h / 25)
@@ -94,7 +99,8 @@ def process_srt_video(v_path, srt_text, pos_pct):
         out.write(frame)
         if i % 25 == 0: prog.progress((i+1)/total_f)
     cap.release(); out.release()
-    # Quality ထိန်းသိမ်းပြီး အသံပြန်ပေါင်းခြင်း
+    
+    # Final Combine with original audio
     subprocess.call(['ffmpeg', '-y', '-i', 'temp_render.mp4', '-i', v_path, '-map', '0:v', '-map', '1:a', '-c:v', 'libx264', '-crf', '23', '-pix_fmt', 'yuv420p', '-shortest', 'NMH_Final.mp4'])
     return 'NMH_Final.mp4'
 
@@ -108,7 +114,11 @@ with tab1:
     st.header("📉 Video File Size လျှော့ချခြင်း")
     st.info("ဗီဒီယိုဆိုဒ်ကြီးနေပါက ဤနေရာတွင် အရင်ကျုံ့ပေးပါ (Resolution မကျပါ)")
     raw_v = st.file_uploader("ဗီဒီယိုတင်ပါ", type=["mp4", "mov"], key="comp")
-    q_level = st.select_slider("Quality", options=["High (အကြည်ဦးစားပေး)", "Medium (ပုံမှန်)", "Low (ဆိုဒ်သေးဦးစားပေး)"], value="Medium")
+    
+    # ValueError မတက်စေရန် value ကို options ထဲက စာသားအတိုင်း ပေးထားသည်
+    q_options = ["High (အကြည်ဦးစားပေး)", "Medium (ပုံမှန်)", "Low (ဆိုဒ်သေးဦးစားပေး)"]
+    q_level = st.select_slider("Quality", options=q_options, value="Medium (ပုံမှန်)")
+    
     if raw_v and st.button("🚀 Compress Now"):
         with st.spinner("ဆိုဒ်ကျုံ့နေပါသည်..."):
             with open("temp_raw.mp4", "wb") as f: f.write(raw_v.read())
@@ -128,12 +138,13 @@ with tab2:
 # --- Step 3: Render Subtitle ---
 with tab3:
     st.header("📝 မြန်မာစာတန်းထိုးခြင်း")
+    # ၁၅ မိနစ် စောင့်ဆိုင်းချိန် စစ်ဆေးခြင်း
     elapsed = time.time() - st.session_state.last_render
     if elapsed < 900 and st.session_state.last_render != 0:
         st.warning(f"⏳ ၁၅ မိနစ် စောင့်ဆိုင်းချိန်အတွင်း ရှိနေပါသည်။ ကျန်ချိန်: {int((900-elapsed)//60)} မိနစ်")
     else:
-        v_in = st.file_uploader("ဗီဒီယို (Compressed ဖိုင်ကိုသုံးရန်အကြံပြုသည်)", type=["mp4"])
-        s_in = st.file_uploader("SRT ဖိုင်တင်ပါ", type=["srt"])
+        v_in = st.file_uploader("ဗီဒီယို (Compressed ဖိုင်ကိုသုံးရန်အကြံပြုသည်)", type=["mp4"], key="render_v")
+        s_in = st.file_uploader("SRT ဖိုင်တင်ပါ", type=["srt"], key="render_s")
         pos = st.selectbox("စာတန်းနေရာ (%)", [10, 20, 30], index=1)
         if v_in and s_in and st.button("🚀 Start Rendering"):
             with st.spinner("စာတန်းမြှုပ်နေပါသည်..."):
