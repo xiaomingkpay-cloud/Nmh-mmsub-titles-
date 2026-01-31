@@ -8,94 +8,163 @@ import textwrap
 import time
 from PIL import Image, ImageDraw, ImageFont
 from datetime import timedelta
-from moviepy.editor import VideoFileClip
 
 # --- UI Configuration ---
-st.set_page_config(page_title="NMH Creative Studio", layout="wide")
+st.set_page_config(page_title="NMH မြန်မာစာတန်းထိုး Pro", layout="wide")
 
 # --- LOGIN GATE ---
+# st.secrets ထဲက vip_keys ကို သုံးပါမယ်
 all_vip_keys = st.secrets.get("vip_keys", {}).values()
 
 if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
+if 'last_render' not in st.session_state:
+    st.session_state.last_render = 0
 
 if not st.session_state.authenticated:
-    st.title("🔐 NMH Pro Tools - Login")
-    user_key = st.text_input("VIP Key ရိုက်ထည့်ပါ", type="password")
+    st.title("🔐 NMH မြန်မာစာတန်းထိုး Pro - Login")
+    user_key = st.text_input("ဝင်ရောက်ရန် VIP Key ရိုက်ထည့်ပါ", type="password")
+    
     if st.button("Login"):
         if user_key in all_vip_keys:
             st.session_state.authenticated = True
             st.rerun()
         else:
             st.error("❌ Key မှားယွင်းနေပါသည်။")
+    
+    # --- CONTACT SECTION ---
+    st.divider()
+    st.subheader("📞 Creator သို့ ဆက်သွယ်ရန်")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.link_button("🔵 Facebook မှဆက်သွယ်ရန်", "https://www.facebook.com/share/1BUUZ4pQ3N/")
+    with col2:
+        st.link_button("✈️ Telegram မှဆက်သွယ်ရန်", "https://t.me/xiaoming2025nmx")
+    
+    st.info("🌟 VPN / Follower / Facebook / TikTok Service များလည်း ရရှိနိုင်ပါသည်။")
     st.stop()
 
-# --- SIDEBAR NAVIGATION ---
+# --- MAIN APP UI ---
 with st.sidebar:
     st.title("👤 NMH Pro Member")
-    app_mode = st.radio("Tool ရွေးချယ်ပါ", ["🎬 မြန်မာစာတန်းထိုး (v1)", "✂️ Short-Video Creator (v2)"])
+    st.success("Welcome back!")
     st.divider()
-    st.write("Creator: @xiaoming2025nmx")
     if st.button("Logout"):
         st.session_state.authenticated = False
         st.rerun()
 
-# --- V1: SUBTITLE FUNCTIONS (မင်းရဲ့ မူလ function များ) ---
-def process_srt_video(v_path, srt_text, pos_pct):
-    # (ယခင် code အတိုင်း စာတန်းထိုးပေးမည့် function)
-    # နေရာလွတ်စေရန် အတိုချုံ့ထားသော်လည်း အရင် code အတိုင်း အလုပ်လုပ်ပါမည်
-    pass
+st.title("✨ NMH မြန်မာစာတန်းထိုး Pro")
 
-# --- V2: SHORT-VIDEO CREATOR FUNCTIONS ---
-def create_vertical_short(input_path, start_time, duration):
-    clip = VideoFileClip(input_path).subclip(start_time, start_time + duration)
-    
-    # Vertical (9:16) ဖြစ်အောင် အလယ်ကနေ ဖြတ်ခြင်း (Auto Crop)
-    w, h = clip.size
-    target_ratio = 9/16
-    target_w = h * target_ratio
-    
-    if w > target_w:
-        # ဘေးနှစ်ဖက်ကို ဖြတ်ထုတ်ပြီး အလယ်ကို ယူသည်
-        padding = (w - target_w) / 2
-        clip = clip.crop(x1=padding, y1=0, x2=w-padding, y2=h)
-    
-    output_path = f"short_{start_time}.mp4"
-    clip.write_videofile(output_path, codec="libx264", audio_codec="aac")
+# --- FUNCTIONS ---
+def compress_video(input_path, output_path):
+    # CRF 28 နဲ့ ဆိုဒ်အတော်လေး သေးသွားအောင် လုပ်ပေးထားပါတယ်
+    cmd = [
+        'ffmpeg', '-y', '-i', input_path,
+        '-c:v', 'libx264', '-crf', '28',
+        '-preset', 'veryfast', '-c:a', 'aac', '-b:a', '128k',
+        output_path
+    ]
+    subprocess.call(cmd)
     return output_path
 
-# --- MAIN APP LOGIC ---
+def parse_time(time_str):
+    time_str = time_str.replace(',', '.')
+    parts = time_str.split(':')
+    return timedelta(hours=int(parts[0]), minutes=int(parts[1]), seconds=float(parts[2]))
 
-if app_mode == "🎬 မြန်မာစာတန်းထိုး (v1)":
-    st.title("✨ NMH မြန်မာစာတန်းထိုး Pro")
-    # အရင်က Tab 3 ခု (Compress, SRT, Render) ကို ဒီနေရာမှာ ထည့်သွင်းထားပါသည်
-    # ... (ယခင် v1 code အပြည့်အစုံ) ...
+def parse_srt(srt_string):
+    subs = []
+    blocks = re.split(r'\n\s*\n', srt_string.strip())
+    for block in blocks:
+        lines = block.split('\n')
+        if len(lines) >= 3:
+            try:
+                times = lines[1].split(' --> ')
+                subs.append({'start': parse_time(times[0].strip()), 'end': parse_time(times[1].strip()), 'text': " ".join(lines[2:])})
+            except: continue
+    return subs
 
-else:
-    # --- TOOL 2: AUTO SHORT-VIDEO CREATOR ---
-    st.title("✂️ Douyin Style Short-Video Creator")
-    st.write("ဗီဒီယိုအရှည်ကြီးထဲမှ အကောင်းဆုံးအပိုင်းများကို Vertical (9:16) အဖြစ် အလိုအလျောက် ဖြတ်ထုတ်ပေးပါမည်။")
-
-    v_file = st.file_uploader("ဗီဒီယိုအရှည် တင်ပေးပါ", type=["mp4", "mov"])
+def process_srt_video(v_path, srt_text, pos_pct):
+    subtitles = parse_srt(srt_text)
+    cap = cv2.VideoCapture(v_path)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    w, h = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     
-    col1, col2 = st.columns(2)
-    with col1:
-        clip_duration = st.slider("အပိုင်းတစ်ခုစီ၏ စက္ကန့်အရှည်", 5, 60, 15)
-    with col2:
-        max_clips = st.number_input("စုစုပေါင်း ဘယ်နှစ်ပိုင်း ဖြတ်မလဲ?", 1, 10, 3)
+    out = cv2.VideoWriter("temp_render.mp4", cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
+    font_size = int(h / 18 if w > h else h / 25)
+    
+    try:
+        font = ImageFont.truetype("myanmar_font.ttf", font_size)
+    except:
+        font = ImageFont.load_default()
 
-    if v_file and st.button("🚀 စတင်ဖြတ်တောက်ပါ"):
-        with st.spinner("ဗီဒီယိုကို AI က အပိုင်းပိုင်း ခွဲနေပါသည်..."):
-            with open("input_long.mp4", "wb") as f:
-                f.write(v_file.read())
-            
-            for i in range(max_clips):
-                st.subheader(f"Clip {i+1}")
-                start = i * clip_duration
-                try:
-                    out_clip = create_vertical_short("input_long.mp4", start, clip_duration)
-                    st.video(out_clip)
-                    st.download_button(f"📥 Download Clip {i+1}", open(out_clip, "rb"), file_name=f"NMH_Short_{i+1}.mp4")
-                except Exception as e:
-                    st.error(f"Clip {i+1} ကို ဖြတ်ရာတွင် အမှားရှိနေပါသည်: {e}")
-                    
+    total_f = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    prog = st.progress(0)
+    
+    for i in range(total_f):
+        ret, frame = cap.read()
+        if not ret: break
+        cur_sec = i / fps
+        active_txt = next((s['text'] for s in subtitles if s['start'].total_seconds() <= cur_sec <= s['end'].total_seconds()), "")
+        if active_txt:
+            wrap_limit = 60 if w > h else 30
+            wrapped = "\n".join(textwrap.wrap(active_txt, width=wrap_limit))
+            img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            draw = ImageDraw.Draw(img)
+            bbox = draw.multiline_textbbox((0, 0), wrapped, font=font)
+            tx, ty = (w-(bbox[2]-bbox[0]))//2, h-int(h*(pos_pct/100))-(bbox[3]-bbox[1])
+            overlay = Image.new('RGBA', img.size, (0,0,0,0))
+            ImageDraw.Draw(overlay).rectangle([tx-15, ty-15, tx+(bbox[2]-bbox[0])+15, ty+(bbox[3]-bbox[1])+15], fill=(0,0,0,160))
+            img = Image.alpha_composite(img.convert('RGBA'), overlay)
+            ImageDraw.Draw(img).multiline_text((tx, ty), wrapped, font=font, fill=(255,255,255), align="center")
+            frame = cv2.cvtColor(np.array(img.convert('RGB')), cv2.COLOR_RGB2BGR)
+        out.write(frame)
+        if i % 25 == 0: prog.progress((i+1)/total_f)
+        
+    cap.release(); out.release()
+    subprocess.call(['ffmpeg', '-y', '-i', 'temp_render.mp4', '-i', v_path, '-map', '0:v', '-map', '1:a', '-c:v', 'libx264', '-crf', '23', '-pix_fmt', 'yuv420p', '-shortest', 'NMH_Final.mp4'])
+    return 'NMH_Final.mp4'
+
+# --- TABS ---
+tab1, tab2, tab3 = st.tabs(["📉 Step 1: Video Compress", "🌐 Step 2: SRT Helper", "📝 Step 3: Subtitle Render"])
+
+# --- Step 1: Compressor ---
+with tab1:
+    st.header("📉 Video File Size လျှော့ချခြင်း")
+    st.write("• 2 မိနစ် အထိသာ လက်ခံပါမည်။")
+    raw_v = st.file_uploader("ဗီဒီယိုတင်ပါ", type=["mp4", "mov"], key="comp")
+    
+    if raw_v and st.button("🚀 Compress Now"):
+        with st.spinner("ဆိုဒ်ကျုံ့နေပါသည်..."):
+            with open("temp_raw.mp4", "wb") as f: f.write(raw_v.read())
+            res_v = compress_video("temp_raw.mp4", "compressed.mp4")
+            st.success(f"✅ ကျုံ့ပြီးပါပြီ! ({os.path.getsize(res_v)//1024//1024} MB)")
+            st.video(res_v)
+            st.download_button("📥 Download Compressed Video", open(res_v, "rb"), file_name="Compressed.mp4")
+
+# --- Step 2: SRT Helper ---
+with tab2:
+    st.header("🌐 Gemini SRT Prompt")
+    st.code("ဒီဗီဒီယိုအတွက် မြန်မာ SRT ထုတ်ပေးပါ", language=None)
+    st.link_button("🤖 Gemini သို့သွားရန်", "https://gemini.google.com/")
+    srt_in = st.text_area("SRT Paste လုပ်ပါ")
+    if srt_in: st.download_button("📥 Save SRT", srt_in, file_name="sub.srt")
+
+# --- Step 3: Render ---
+with tab3:
+    st.header("📝 မြန်မာစာတန်းထိုးခြင်း")
+    elapsed = time.time() - st.session_state.last_render
+    if elapsed < 900 and st.session_state.last_render != 0:
+        st.warning(f"⏳ ၁၅ မိနစ် စောင့်ဆိုင်းချိန်အတွင်း ရှိနေပါသည်။ ကျန်ချိန်: {int((900-elapsed)//60)} မိနစ်")
+    else:
+        v_in = st.file_uploader("ဗီဒီယို (Compressed ဖိုင်ကိုသုံးရန်အကြံပြုသည်)", type=["mp4"], key="render_v")
+        s_in = st.file_uploader("SRT ဖိုင်တင်ပါ", type=["srt"], key="render_s")
+        pos = st.selectbox("စာတန်းနေရာ (%)", [10, 20, 30], index=1)
+        if v_in and s_in and st.button("🚀 Start Rendering"):
+            with st.spinner("စာတန်းမြှုပ်နေပါသည်..."):
+                with open("render_in.mp4", "wb") as f: f.write(v_in.read())
+                final = process_srt_video("render_in.mp4", s_in.read().decode('utf-8', errors='ignore'), pos)
+                st.session_state.last_render = time.time()
+                st.video(final)
+                st.download_button("📥 Download Video", open(final, "rb"), file_name="NMH_Final.mp4")
+                
